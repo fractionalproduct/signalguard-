@@ -5,6 +5,7 @@ import { verifyPassword } from "@signalguard/auth";
 import { getDb } from "@signalguard/database";
 import { recordAuditEvent } from "@signalguard/audit";
 import { createSessionForOwner, destroyCurrentSession } from "../../lib/session";
+import { setPendingMfa } from "../../lib/mfa";
 
 export interface LoginState {
   error?: string;
@@ -38,8 +39,18 @@ export async function loginAction(
     return { error: "Invalid email or password." };
   }
 
-  // NOTE: when MFA is enabled (next milestone step) this is where we branch to a
-  // second factor before creating the session. For now, password is sufficient.
+  // If two-factor is enabled, hold off on a real session: set a short-lived
+  // "pending" marker and require the second factor at /login/mfa.
+  if (owner.mfaEnabled) {
+    setPendingMfa(owner.id);
+    await recordAuditEvent({
+      type: "owner.login_password_ok",
+      source: "web",
+      ownerId: owner.id,
+    });
+    redirect("/login/mfa");
+  }
+
   await createSessionForOwner(owner.id);
   await recordAuditEvent({ type: "owner.login", source: "web", ownerId: owner.id });
 

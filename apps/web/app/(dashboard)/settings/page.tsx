@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function SettingsPage() {
   return (
     <section className="page-card">
@@ -6,6 +8,16 @@ export default function SettingsPage() {
       <p className="lead">
         Future preferences for account setup, notifications, paper-trading connections, and display choices.
       </p>
+
+      <div className="settings-panel">
+        <div>
+          <h2>Security</h2>
+          <p className="muted">Password and two-factor authentication.</p>
+        </div>
+        <Link className="signout-button" href="/settings/security">
+          Manage security
+        </Link>
+      </div>
 
       <div className="settings-panel" aria-labelledby="advanced-view-heading">
         <div>
