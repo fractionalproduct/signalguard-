@@ -29,3 +29,8 @@ export {
   createSessionToken,
   type SessionTokenPair,
 } from "./session.js";
+export {
+  loadEncryptionKey,
+  encryptSecret,
+  decryptSecret,
+} from "./encryption.js";

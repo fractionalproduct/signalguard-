@@ -18,14 +18,64 @@ datasource db {
 /// created once via `pnpm create-owner` (Milestone 2). Passwords and MFA secrets
 /// are stored hashed/encrypted only — never plaintext.
 model Owner {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  passwordHash  String?
-  mfaEnabled    Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  passwordHash       String?
+  mfaEnabled         Boolean   @default(false)
+  /// TOTP secret, encrypted at rest (AES-256-GCM). Never stored in plaintext.
+  mfaSecretEncrypted String?
+  mfaEnabledAt       DateTime?
+  passwordChangedAt  DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  auditEvents   AuditEvent[]
+  auditEvents         AuditEvent[]
+  sessions            Session[]
+  recoveryCodes       RecoveryCode[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+/// An authenticated browser session. The raw token lives only in the owner's
+/// HTTP-only cookie; only its SHA-256 hash is stored here.
+model Session {
+  id         String    @id @default(cuid())
+  ownerId    String
+  owner      Owner     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  ipAddress  String?
+  userAgent  String?
+
+  @@index([ownerId])
+  @@index([expiresAt])
+}
+
+/// One-time MFA recovery codes. Only the hash is stored; consumed on use.
+model RecoveryCode {
+  id        String    @id @default(cuid())
+  ownerId   String
+  owner     Owner     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([ownerId])
+}
+
+/// Short-lived password-reset tokens. Raw token emailed; only its hash stored.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  ownerId   String
+  owner     Owner     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([ownerId])
 }
 
 /// Append-only audit trail. Every security-, trading-, and guardrail-sensitive

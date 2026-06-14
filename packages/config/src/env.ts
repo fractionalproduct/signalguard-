@@ -18,6 +18,10 @@ const EnvSchema = z.object({
   // 32+ char secret used to sign sessions. Required in production.
   SESSION_SECRET: z.string().min(32).optional(),
 
+  // 32-byte key (base64 or 64-char hex) for encrypting MFA secrets at rest.
+  // Validated to exactly 32 bytes by loadEncryptionKey() at use-time.
+  ENCRYPTION_KEY: z.string().optional(),
+
   // Data stores. Optional at this milestone so the scaffold boots without them;
   // services that actually need them assert presence at use-time.
   DATABASE_URL: z.string().url().optional(),

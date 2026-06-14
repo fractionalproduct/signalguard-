@@ -3,17 +3,21 @@ import { test } from "node:test";
 import {
   base32Encode,
   createSessionToken,
+  decryptSecret,
+  encryptSecret,
   generateRecoveryCodes,
   generateSessionToken,
   generateTotp,
   hashPassword,
   hashRecoveryCode,
   hashSessionToken,
+  loadEncryptionKey,
   validatePasswordStrength,
   verifyPassword,
   verifyRecoveryCode,
   verifyTotp,
 } from "./index.js";
+import { randomBytes } from "node:crypto";
 
 // ---------------------------------------------------------------- passwords
 test("password hashing round-trips and rejects wrong passwords", async () => {
@@ -101,4 +105,41 @@ test("session tokens are unique and hash deterministically", () => {
 
   const pair = createSessionToken();
   assert.equal(pair.tokenHash, hashSessionToken(pair.token));
+});
+
+// ------------------------------------------------------------------ encryption
+test("encryptSecret round-trips and produces different ciphertext each time", () => {
+  const key = randomBytes(32);
+  const secret = "JBSWY3DPEHPK3PXP";
+  const a = encryptSecret(secret, key);
+  const b = encryptSecret(secret, key);
+  assert.notEqual(a, secret);
+  assert.notEqual(a, b, "random IV makes each ciphertext unique");
+  assert.equal(decryptSecret(a, key), secret);
+  assert.equal(decryptSecret(b, key), secret);
+});
+
+test("decryptSecret rejects a tampered ciphertext or wrong key", () => {
+  const key = randomBytes(32);
+  const wrongKey = randomBytes(32);
+  const encoded = encryptSecret("totp-secret", key);
+
+  // Wrong key → GCM auth tag mismatch.
+  assert.throws(() => decryptSecret(encoded, wrongKey));
+
+  // Tampered ciphertext (flip a real byte) → GCM auth tag mismatch.
+  const parts = encoded.split("$");
+  const data = Buffer.from(parts[3] ?? "", "base64");
+  data[0] = (data[0] ?? 0) ^ 0xff;
+  parts[3] = data.toString("base64");
+  assert.throws(() => decryptSecret(parts.join("$"), key));
+
+  // Malformed format.
+  assert.throws(() => decryptSecret("not-a-valid-ciphertext", key));
+});
+
+test("loadEncryptionKey accepts base64 and hex 32-byte keys, rejects others", () => {
+  assert.equal(loadEncryptionKey(randomBytes(32).toString("base64")).length, 32);
+  assert.equal(loadEncryptionKey(randomBytes(32).toString("hex")).length, 32);
+  assert.throws(() => loadEncryptionKey("tooshort"));
 });
