@@ -18,7 +18,8 @@
     "dev:general-worker": "pnpm --filter @signalguard/general-worker dev",
     "dev:trading-worker": "pnpm --filter @signalguard/trading-worker dev",
     "db:generate": "pnpm --filter @signalguard/database generate",
-    "db:migrate": "pnpm --filter @signalguard/database migrate"
+    "db:migrate": "pnpm --filter @signalguard/database migrate",
+    "create-owner": "pnpm --filter \"@signalguard/database...\" build && node packages/database/dist/scripts/create-owner.js"
   },
   "devDependencies": {
     "typescript": "^5.6.2"
