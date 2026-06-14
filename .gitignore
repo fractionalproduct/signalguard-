@@ -1,0 +1,53 @@
+# ---- Secrets: NEVER commit these ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets/
+.secrets/
+
+# ---- Node / pnpm ----
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-error.log*
+
+# ---- Build output ----
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# ---- Test / coverage ----
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# ---- Databases / local data ----
+*.sqlite
+*.sqlite3
+*.db
+/data/
+/tmp/
+
+# ---- Editor / OS ----
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Logs ----
+logs/
+*.log
+
+# ---- Misc ----
+.turbo/
+.cache/

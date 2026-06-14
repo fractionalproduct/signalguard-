@@ -1,0 +1,33 @@
+{
+  "name": "SignalGuard AI (Codespaces / Dev Container)",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "20" },
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+  "postCreateCommand": "corepack enable && corepack prepare pnpm@latest --activate && echo 'Dev container ready. Run pnpm install once packages exist.'",
+  "forwardPorts": [3000, 5432, 6379],
+  "portsAttributes": {
+    "3000": { "label": "Web Portal" },
+    "5432": { "label": "PostgreSQL (dev only)" },
+    "6379": { "label": "Redis (dev only)" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "prisma.prisma",
+        "ms-playwright.playwright",
+        "github.vscode-github-actions"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+      }
+    }
+  },
+  "remoteUser": "node"
+}
