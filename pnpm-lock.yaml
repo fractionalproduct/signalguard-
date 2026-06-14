@@ -123,6 +123,39 @@ importers:
         specifier: ^5.6.2
         version: 5.9.3
 
+  packages/domain:
+    devDependencies:
+      typescript:
+        specifier: ^5.6.2
+        version: 5.9.3
+
+  packages/market-sessions:
+    devDependencies:
+      typescript:
+        specifier: ^5.6.2
+        version: 5.9.3
+
+  packages/notifications:
+    devDependencies:
+      typescript:
+        specifier: ^5.6.2
+        version: 5.9.3
+
+  packages/performance:
+    devDependencies:
+      typescript:
+        specifier: ^5.6.2
+        version: 5.9.3
+
+  packages/ui:
+    dependencies:
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+
 packages:
 
   '@cspotcode/source-map-support@0.8.1':
