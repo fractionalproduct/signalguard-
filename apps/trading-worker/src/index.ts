@@ -23,7 +23,7 @@ function main(): void {
   // Hard, non-LLM guard. Throws (and the process exits) if anything looks live.
   assertPaperTrading(env);
 
-  const port = Number(process.env.HEALTH_PORT ?? 8082);
+  const port = Number(process.env.PORT ?? process.env.HEALTH_PORT ?? 8082);
   const server = startHealthServer({ port, service: SERVICE, logger });
 
   logger.info(

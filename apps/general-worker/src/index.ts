@@ -17,7 +17,7 @@ const logger = createLogger(SERVICE);
 
 function main(): void {
   const env = loadEnv();
-  const port = Number(process.env.HEALTH_PORT ?? 8081);
+  const port = Number(process.env.PORT ?? process.env.HEALTH_PORT ?? 8081);
 
   const server = startHealthServer({ port, service: SERVICE, logger });
 
