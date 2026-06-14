@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Transpile workspace packages so the web app can import shared code directly.
-  transpilePackages: ["@signalguard/config"],
+  // When the web app starts importing workspace packages, list them here, e.g.
+  // transpilePackages: ["@signalguard/config"],
 };
 
 export default nextConfig;
