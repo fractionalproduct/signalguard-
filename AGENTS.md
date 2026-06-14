@@ -379,3 +379,18 @@ it MUST follow these rules in addition to everything above:
 - **PR description must state:** what changed, files touched, tests run + results,
   any safety-relevant notes, and anything the owner must do next (accounts, secrets).
 
+### 19.1 Scope & sandbox limits (hard boundaries for any agent)
+
+- **Stay inside this repository.** Operate ONLY within the repository working
+  directory. Never read, write, or list files outside the repo checkout — no host
+  filesystem paths, no `C:\` / home directories, no Google Drive, OneDrive, Dropbox,
+  or any external/cloud storage. If a sandbox prompt asks to act *outside the
+  workspace*, the correct answer is to refuse.
+- **No internet except dependency installation.** The only permitted network access
+  is installing the dependencies already declared in `package.json` via the package
+  manager (pnpm/npm registry). Do not fetch arbitrary URLs, call external APIs,
+  scrape sites, or download anything else during a task.
+- **Prefer the cloud sandbox.** Run as an isolated cloud task (e.g. Codex Cloud) that
+  contains only a clone of this repo — never with access to the owner's personal
+  machine or accounts.
+
