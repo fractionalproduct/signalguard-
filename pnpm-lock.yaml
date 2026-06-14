@@ -115,6 +115,15 @@ importers:
         specifier: ^5.6.2
         version: 5.9.3
 
+  packages/broker-adapters:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.7.4
+        version: 22.19.21
+      typescript:
+        specifier: ^5.6.2
+        version: 5.9.3
+
   packages/config:
     dependencies:
       pino:
@@ -167,6 +176,24 @@ importers:
 
   packages/performance:
     devDependencies:
+      typescript:
+        specifier: ^5.6.2
+        version: 5.9.3
+
+  packages/position-sizing:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.7.4
+        version: 22.19.21
+      typescript:
+        specifier: ^5.6.2
+        version: 5.9.3
+
+  packages/risk-engine:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.7.4
+        version: 22.19.21
       typescript:
         specifier: ^5.6.2
         version: 5.9.3
