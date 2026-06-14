@@ -278,3 +278,117 @@ h2 {
     padding: 24px;
   }
 }
+
+/* ---- Authentication ---- */
+.login-wrap {
+  min-height: calc(100vh - 40px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--panel, #11182b);
+  border: 1px solid var(--border, #263249);
+  border-radius: 18px;
+  padding: 32px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.3);
+}
+
+.login-card h1 {
+  margin: 0 0 4px;
+  font-size: 26px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--muted, #9aa3b2);
+}
+
+.field input {
+  font: inherit;
+  color: var(--fg, #e6e9f2);
+  background: rgba(230, 233, 242, 0.06);
+  border: 1px solid var(--border, #263249);
+  border-radius: 10px;
+  padding: 11px 12px;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--accent, #f5a623);
+  box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.28);
+}
+
+.btn-primary {
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  color: #1a1300;
+  background: var(--accent, #f5a623);
+  border: none;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.form-error {
+  margin: 0;
+  color: #ff6b6b;
+  font-size: 14px;
+}
+
+.login-note {
+  margin: 18px 0 0;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ---- User menu / sign out ---- */
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-email {
+  font-size: 13px;
+  color: var(--muted, #9aa3b2);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signout-button {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--fg, #e6e9f2);
+  background: rgba(230, 233, 242, 0.07);
+  border: 1px solid var(--border, #263249);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.signout-button:hover {
+  border-color: var(--accent, #f5a623);
+}

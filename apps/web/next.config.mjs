@@ -1,8 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // When the web app starts importing workspace packages, list them here, e.g.
-  // transpilePackages: ["@signalguard/config"],
+  transpilePackages: [
+    "@signalguard/auth",
+    "@signalguard/audit",
+    "@signalguard/config",
+    "@signalguard/database",
+  ],
+  experimental: {
+    // Prisma ships a native query engine — keep it external rather than bundled.
+    serverComponentsExternalPackages: ["@prisma/client", "prisma"],
+  },
 };
 
 export default nextConfig;
