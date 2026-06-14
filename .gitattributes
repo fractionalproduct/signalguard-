@@ -1,0 +1,10 @@
+# Normalize line endings: store LF in the repo, check out native on each OS.
+# Keeps Windows (laptop) and Linux (cloud/CI) consistent.
+* text=auto eol=lf
+
+# Binary types should never be normalized.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
