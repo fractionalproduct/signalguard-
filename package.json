@@ -1,0 +1,24 @@
+{
+  "name": "signalguard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SignalGuard AI — private single-user AI-assisted paper-trading platform",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "dev:web": "pnpm --filter @signalguard/web dev",
+    "dev:general-worker": "pnpm --filter @signalguard/general-worker dev",
+    "dev:trading-worker": "pnpm --filter @signalguard/trading-worker dev",
+    "db:generate": "pnpm --filter @signalguard/database generate",
+    "db:migrate": "pnpm --filter @signalguard/database migrate"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.2"
+  }
+}

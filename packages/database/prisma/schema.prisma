@@ -1,0 +1,46 @@
+// SignalGuard AI — initial data model (Milestone 1).
+// Expanded in later milestones (signals, orders, positions, performance, etc.).
+// PostgreSQL is the system of record (see docs/architecture.md).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// The single platform owner. Public registration is disabled; the owner is
+/// created once via `pnpm create-owner` (Milestone 2). Passwords and MFA secrets
+/// are stored hashed/encrypted only — never plaintext.
+model Owner {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String?
+  mfaEnabled    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  auditEvents   AuditEvent[]
+}
+
+/// Append-only audit trail. Every security-, trading-, and guardrail-sensitive
+/// action writes a record here. Records are never updated or deleted.
+model AuditEvent {
+  id          String   @id @default(cuid())
+  /// Stable event type, e.g. "owner.login", "emergency_stop.activated".
+  type        String
+  /// Logical service that emitted the event: web | general-worker | trading-worker.
+  source      String
+  /// Optional actor (owner) the event is attributed to.
+  ownerId     String?
+  owner       Owner?   @relation(fields: [ownerId], references: [id])
+  /// Free-form structured context (no secrets).
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([type])
+  @@index([createdAt])
+  @@index([ownerId])
+}

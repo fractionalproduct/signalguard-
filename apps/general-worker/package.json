@@ -1,0 +1,25 @@
+{
+  "name": "@signalguard/general-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev": "node --watch --loader ts-node/esm src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo \"(lint configured in Milestone 2)\"",
+    "test": "echo \"(tests added in later milestones)\""
+  },
+  "dependencies": {
+    "@signalguard/audit": "workspace:*",
+    "@signalguard/config": "workspace:*",
+    "@signalguard/database": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.2"
+  }
+}
