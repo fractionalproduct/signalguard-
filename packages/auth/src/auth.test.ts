@@ -123,9 +123,19 @@ test("decryptSecret rejects a tampered ciphertext or wrong key", () => {
   const key = randomBytes(32);
   const wrongKey = randomBytes(32);
   const encoded = encryptSecret("totp-secret", key);
+
+  // Wrong key → GCM auth tag mismatch.
   assert.throws(() => decryptSecret(encoded, wrongKey));
-  assert.throws(() => decryptSecret(`${encoded}x`, key));
-  assert.throws(() => decryptSecret("v1$bad$bad$bad", key));
+
+  // Tampered ciphertext (flip a real byte) → GCM auth tag mismatch.
+  const parts = encoded.split("$");
+  const data = Buffer.from(parts[3] ?? "", "base64");
+  data[0] = (data[0] ?? 0) ^ 0xff;
+  parts[3] = data.toString("base64");
+  assert.throws(() => decryptSecret(parts.join("$"), key));
+
+  // Malformed format.
+  assert.throws(() => decryptSecret("not-a-valid-ciphertext", key));
 });
 
 test("loadEncryptionKey accepts base64 and hex 32-byte keys, rejects others", () => {
