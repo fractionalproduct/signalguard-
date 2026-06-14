@@ -22,9 +22,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        # Lockfile is committed after the first install in Codespaces; until then
-        # CI resolves fresh. Switch to --frozen-lockfile once pnpm-lock.yaml exists.
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
         run: pnpm --filter @signalguard/database generate
