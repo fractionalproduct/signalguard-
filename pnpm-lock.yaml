@@ -124,7 +124,13 @@ importers:
       '@prisma/client':
         specifier: ^5.20.0
         version: 5.22.0(prisma@5.22.0)
+      '@signalguard/auth':
+        specifier: workspace:*
+        version: link:../auth
     devDependencies:
+      '@types/node':
+        specifier: ^22.7.4
+        version: 22.19.21
       prisma:
         specifier: ^5.20.0
         version: 5.22.0
