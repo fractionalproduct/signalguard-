@@ -30,7 +30,9 @@ function loadEnvFile(path: string): void {
     ) {
       value = value.slice(1, -1);
     }
-    if (key && !(key in process.env)) process.env[key] = value;
+    // The .env wins: a dev container may pre-set DATABASE_URL to a local
+    // throwaway DB, but this CLI must target the database in the .env file.
+    if (key) process.env[key] = value;
   }
 }
 
