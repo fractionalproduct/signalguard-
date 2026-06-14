@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { AppShell } from "./components/AppShell";
 import { PaperTradingBanner } from "./components/PaperTradingBanner";
 import "./globals.css";
 
@@ -14,7 +15,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         {/* Always visible on every page — a non-negotiable safety affordance. */}
         <PaperTradingBanner />
-        <main className="container">{children}</main>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );
