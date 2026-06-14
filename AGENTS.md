@@ -359,8 +359,11 @@ reachable.
 When an autonomous cloud coding agent (e.g. Codex cloud tasks) works in this repo,
 it MUST follow these rules in addition to everything above:
 
-- **Never push to `main`.** Always work on a new branch and open a pull request for
-  the owner to review and merge. The owner is the only approver.
+- **Never push to `main`, and NEVER merge a pull request yourself** — not via the
+  GitHub UI, the `gh` CLI, or the REST API. Opening a PR is your last step. Merging
+  to `main` (which deploys to the live site) is exclusively the owner's action, done
+  by the owner in the GitHub UI. Everything else — branches, builds, tests, commits,
+  pushing feature branches, opening PRs — you may do without asking.
 - **Prove it works before opening the PR.** Run and pass: `pnpm install`,
   `pnpm -r typecheck`, `pnpm -r build`, `pnpm -r test`. Report the results in the PR.
 - **Stay in scope.** Do only the single task/milestone described. Do not start
