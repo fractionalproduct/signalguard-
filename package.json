@@ -9,6 +9,8 @@
   },
   "scripts": {
     "build": "pnpm -r build",
+    "build:general-worker": "pnpm --filter @signalguard/general-worker... build",
+    "build:trading-worker": "pnpm --filter @signalguard/trading-worker... build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
