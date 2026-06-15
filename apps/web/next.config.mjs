@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // When the web app starts importing workspace packages, list them here, e.g.
-  // transpilePackages: ["@signalguard/config"],
+  // Workspace packages consumed by the web app (compiled ESM in their dist/).
+  transpilePackages: ["@signalguard/broker-adapters"],
 };
 
 export default nextConfig;
