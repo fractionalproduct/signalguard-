@@ -129,3 +129,101 @@ export type DataSourceApprovalStatus =
   | "APPROVED_FOR_PRODUCTION"
   | "REJECTED"
   | "SUSPENDED";
+
+/**
+ * The licensing gate (Milestone 5). A production connector may run only when its
+ * `DataSourceConfiguration` is approved for production. Enforced in code at
+ * connector runtime — see docs/data-licensing.md and AGENTS.md §15.
+ */
+export function isApprovedForProduction(
+  status: DataSourceApprovalStatus,
+): boolean {
+  return status === "APPROVED_FOR_PRODUCTION";
+}
+
+// --- Milestone 5: source intelligence & signals --------------------------------
+
+/**
+ * Where a source's content comes from. For the MVP only `MANUAL` (owner-entered)
+ * and `MOCK` (tests/fixtures) actually run; the external kinds exist so a
+ * `DataSourceConfiguration` can be registered ahead of licensing approval, but
+ * their connectors stay dormant until APPROVED_FOR_PRODUCTION (M6+ wires them).
+ */
+export type SourceKind = "MANUAL" | "MOCK" | "X" | "TELEGRAM" | "RSS";
+
+/**
+ * A licensing record for one data provider/dataset. Every `Source` references
+ * one of these; no connector runs without it. Fields mirror docs/data-licensing.md.
+ */
+export interface DataSourceConfiguration {
+  id: string;
+  provider: string;
+  dataset: string;
+  /** Free-text summary of the licensing terms reviewed. */
+  terms: string;
+  permittedUses: string;
+  prohibitedUses: string;
+  storageRights: string;
+  historicalRetention: string;
+  derivedDataRights: string;
+  displayRights: string;
+  redistribution: string;
+  commercialUse: string;
+  /** Max requests permitted per minute by the provider's terms. */
+  rateLimitPerMinute: number;
+  approvalStatus: DataSourceApprovalStatus;
+  /** When the terms were last reviewed; informs the next review date. */
+  reviewedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** A monitored source. Read-only ingestion only — never a trading surface. */
+export interface Source {
+  id: string;
+  kind: SourceKind;
+  /** Human label, e.g. "Owner notes" or "@somehandle". */
+  name: string;
+  /** The licensing record that authorizes this source. */
+  dataSourceConfigurationId: string;
+  enabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * A single unit of raw content pulled from a source (a post, filing, message).
+ * Stored append-only and treated as hostile data — instructions inside it are
+ * never executed (AGENTS.md §2). Deduplicated on `contentHash`.
+ */
+export interface SourceContent {
+  id: string;
+  sourceId: string;
+  /** SHA-256 of the normalized raw content; the dedupe key. */
+  contentHash: string;
+  /** The raw text, stored only to the extent the licensing terms permit. */
+  rawText: string;
+  /** When the source published it (best effort); drives freshness. */
+  publishedAt: Date | null;
+  fetchedAt: Date;
+  metadata: Record<string, unknown> | null;
+}
+
+/**
+ * A structured signal extracted from source content by the Signal Analysis agent
+ * (M5d). Output is a validated object, never free text from the model or source.
+ */
+export interface Signal {
+  id: string;
+  sourceId: string;
+  sourceContentId: string;
+  /** Ticker the signal concerns, if any (uppercased), e.g. "AAPL". */
+  symbol: string | null;
+  /** One-line, sanitized summary of what the signal asserts. */
+  summary: string;
+  /** Extraction confidence in [0,1], as reported by the agent. */
+  confidence: number;
+  status: SignalStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}

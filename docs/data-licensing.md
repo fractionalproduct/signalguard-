@@ -12,10 +12,22 @@ rights · Historical retention · Derived-data rights · Display rights · Attri
 
 ## Approval statuses
 
-`PROPOSED` → `TERMS_REVIEW_REQUIRED` → `APPROVED_FOR_DEVELOPMENT` →
-`APPROVED_FOR_PRODUCTION` · plus `RESTRICTED`, `REJECTED`, `SUSPENDED`, `EXPIRED`.
+The authoritative set is the `DataSourceApprovalStatus` enum in
+`@signalguard/domain` (and the matching Prisma enum) — code is the runtime
+contract, so this doc tracks it, not the other way around:
 
-**Production connectors must not run without `APPROVED_FOR_PRODUCTION`.**
+`NOT_REVIEWED` → `PENDING_REVIEW` → `APPROVED_FOR_DEVELOPMENT` →
+`APPROVED_FOR_PRODUCTION` · plus `REJECTED` and `SUSPENDED` (a previously
+approved source pulled out of service, e.g. on terms change or license expiry;
+it returns to `PENDING_REVIEW` before any re-approval).
+
+> Earlier drafts of this doc used `PROPOSED`/`TERMS_REVIEW_REQUIRED` (now
+> `NOT_REVIEWED`/`PENDING_REVIEW`) and listed `RESTRICTED`/`EXPIRED`; those are
+> folded into `SUSPENDED`. Use the enum values above.
+
+**Production connectors must not run without `APPROVED_FOR_PRODUCTION`.** This is
+enforced in code by `isApprovedForProduction(...)` from `@signalguard/domain`,
+checked at connector runtime (not just at deploy time).
 
 ## Source rules
 
