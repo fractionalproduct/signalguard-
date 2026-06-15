@@ -4,6 +4,7 @@ import { logoutAction } from "../login/actions";
 
 const navItems = [
   { href: "/home", label: "Home" },
+  { href: "/signals", label: "Signals" },
   { href: "/research", label: "Research" },
   { href: "/trading", label: "Trading" },
   { href: "/performance", label: "Performance" },

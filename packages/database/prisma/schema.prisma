@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   // Pooled connection (Supabase transaction pooler, port 6543) for app runtime.
   url       = env("DATABASE_URL")
   // Direct/session connection (port 5432) for migrations & `prisma db push`.
@@ -81,19 +81,181 @@ model PasswordResetToken {
 /// Append-only audit trail. Every security-, trading-, and guardrail-sensitive
 /// action writes a record here. Records are never updated or deleted.
 model AuditEvent {
-  id          String   @id @default(cuid())
+  id        String   @id @default(cuid())
   /// Stable event type, e.g. "owner.login", "emergency_stop.activated".
-  type        String
+  type      String
   /// Logical service that emitted the event: web | general-worker | trading-worker.
-  source      String
+  source    String
   /// Optional actor (owner) the event is attributed to.
-  ownerId     String?
-  owner       Owner?   @relation(fields: [ownerId], references: [id])
+  ownerId   String?
+  owner     Owner?   @relation(fields: [ownerId], references: [id])
   /// Free-form structured context (no secrets).
-  metadata    Json?
-  createdAt   DateTime @default(now())
+  metadata  Json?
+  createdAt DateTime @default(now())
 
   @@index([type])
   @@index([createdAt])
   @@index([ownerId])
+}
+
+// --- Milestone 5: source intelligence & signals --------------------------------
+// Mirrors the types in @signalguard/domain. Source content is treated as hostile
+// data; instructions inside it are never executed (AGENTS.md §2). No connector
+// runs without an APPROVED_FOR_PRODUCTION DataSourceConfiguration in production
+// (AGENTS.md §15, docs/data-licensing.md).
+
+/// Licensing approval for a data provider/dataset. The authoritative enum lives
+/// in @signalguard/domain (DataSourceApprovalStatus) — keep the two in sync.
+enum DataSourceApprovalStatus {
+  NOT_REVIEWED
+  PENDING_REVIEW
+  APPROVED_FOR_DEVELOPMENT
+  APPROVED_FOR_PRODUCTION
+  REJECTED
+  SUSPENDED
+}
+
+/// How a source's content is obtained. Only MANUAL and MOCK run in the MVP.
+enum SourceKind {
+  MANUAL
+  MOCK
+  X
+  TELEGRAM
+  RSS
+  CONGRESS
+}
+
+/// Congressional chamber a filing originates from (M6).
+enum Chamber {
+  HOUSE
+  SENATE
+}
+
+/// Reported transaction type on a congressional periodic transaction report.
+enum CongressionalTransactionType {
+  PURCHASE
+  SALE
+  EXCHANGE
+}
+
+/// Lifecycle of an extracted signal. Mirrors SignalStatus in @signalguard/domain.
+enum SignalStatus {
+  NEW
+  PROCESSING
+  READY_FOR_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+  ARCHIVED
+}
+
+/// Per-provider licensing record. Every Source references exactly one; no
+/// connector runs without it, and production needs APPROVED_FOR_PRODUCTION.
+model DataSourceConfiguration {
+  id                  String                   @id @default(cuid())
+  provider            String
+  dataset             String
+  terms               String
+  permittedUses       String
+  prohibitedUses      String
+  storageRights       String
+  historicalRetention String
+  derivedDataRights   String
+  displayRights       String
+  redistribution      String
+  commercialUse       String
+  rateLimitPerMinute  Int                      @default(0)
+  approvalStatus      DataSourceApprovalStatus @default(NOT_REVIEWED)
+  reviewedAt          DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  sources Source[]
+
+  @@unique([provider, dataset])
+  @@index([approvalStatus])
+}
+
+/// A monitored, read-only ingestion source.
+model Source {
+  id                        String                  @id @default(cuid())
+  kind                      SourceKind
+  name                      String
+  dataSourceConfigurationId String
+  dataSourceConfiguration   DataSourceConfiguration @relation(fields: [dataSourceConfigurationId], references: [id])
+  enabled                   Boolean                 @default(false)
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+
+  contents SourceContent[]
+  signals  Signal[]
+
+  @@index([dataSourceConfigurationId])
+  @@index([kind])
+}
+
+/// Raw content pulled from a source. Append-only; deduplicated per source on
+/// contentHash. Treated as hostile data.
+model SourceContent {
+  id          String    @id @default(cuid())
+  sourceId    String
+  source      Source    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  contentHash String
+  rawText     String
+  publishedAt DateTime?
+  fetchedAt   DateTime  @default(now())
+  metadata    Json?
+
+  signals     Signal[]
+  disclosures CongressionalDisclosure[]
+
+  @@unique([sourceId, contentHash])
+  @@index([sourceId])
+  @@index([fetchedAt])
+}
+
+/// A structured signal extracted from source content by the Signal Analysis
+/// agent. Always a validated object — never free text from the model or source.
+model Signal {
+  id              String        @id @default(cuid())
+  sourceId        String
+  source          Source        @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  sourceContentId String
+  sourceContent   SourceContent @relation(fields: [sourceContentId], references: [id], onDelete: Cascade)
+  symbol          String?
+  summary         String
+  confidence      Float
+  status          SignalStatus  @default(NEW)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([sourceId])
+  @@index([sourceContentId])
+  @@index([status])
+  @@index([symbol])
+}
+
+/// A structured congressional periodic-transaction-report line (M6), parsed from
+/// an official filing held as SourceContent. Amounts are reported as a range and
+/// stored as integer cents. Mirrors CongressionalDisclosure in @signalguard/domain.
+model CongressionalDisclosure {
+  id               String                       @id @default(cuid())
+  sourceContentId  String
+  sourceContent    SourceContent                @relation(fields: [sourceContentId], references: [id], onDelete: Cascade)
+  representative   String
+  chamber          Chamber
+  symbol           String?
+  assetDescription String
+  transactionType  CongressionalTransactionType
+  amountRangeLow   Int
+  amountRangeHigh  Int
+  transactionDate  DateTime
+  filedDate        DateTime
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+
+  @@index([sourceContentId])
+  @@index([symbol])
+  @@index([representative])
+  @@index([transactionDate])
 }
