@@ -1,5 +1,5 @@
 {
-  "name": "@signalguard/domain",
+  "name": "@signalguard/source-connectors",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,7 +17,12 @@
     "lint": "echo \"(lint configured in Milestone 2)\"",
     "test": "pnpm run build && node --test dist/test/*.test.js"
   },
+  "dependencies": {
+    "@signalguard/domain": "workspace:*",
+    "@signalguard/signals": "workspace:*"
+  },
   "devDependencies": {
+    "@types/node": "^22.7.4",
     "typescript": "^5.6.2"
   }
 }
