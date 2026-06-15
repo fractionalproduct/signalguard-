@@ -1,7 +1,7 @@
 # Project Status
 
 > Quick "where are we" snapshot so any session can resume instantly.
-> Last updated: 2026-06-15 (M3 + M4 built overnight; awaiting owner merges).
+> Last updated: 2026-06-15 (M3 + M4 merged to `main`; PRs #17 and #18).
 
 ## ✅ Done
 
@@ -22,19 +22,13 @@
     refuses live endpoint + non-paper `TRADING_MODE`). 5/5 tests.
   - `@signalguard/performance` — performance package (merged via the overnight integration batch).
   - `pnpm reset-password` CLI — resets owner password + revokes all sessions.
-
-## 🟢 Built overnight, awaiting owner merge to `main`
-
-> Merging to `main` is owner-only (AGENTS.md). Both are pushed to origin and verified.
-
-- **`milestone-4/agent-foundation`** — `@signalguard/agent-core` (v0.1.0): deterministic
-  scaffolding every agent runs on (AgentRegistry, PromptRegistry, AgentToolGateway,
-  HumanReviewQueue, AgentOrchestrator). No live LLM/DB — executor + audit sink injected, so the
-  whole pipeline is unit-testable. Permissions enforced in code, model output always re-validated.
-  **22/22 tests green; full `pnpm -r` gate passes.** 1 ahead, 0 behind `main` — ready to merge.
-- **`milestone-3/portfolio-dashboard`** — read-only portfolio dashboard on the paper broker
-  adapter (pure `money`/`portfolio-view` libs, server-only loader, presentational UI). Verified.
-  1 ahead, **2 behind `main`** — rebase/merge `main` before merging.
+  - **Milestone 3** — read-only **portfolio dashboard** on the paper broker adapter (pure
+    `money`/`portfolio-view` libs, server-only loader, presentational UI). Merged via **PR #18**.
+  - **Milestone 4** — `@signalguard/agent-core` (v0.1.0): deterministic scaffolding every agent
+    runs on (AgentRegistry, PromptRegistry, AgentToolGateway, HumanReviewQueue, AgentOrchestrator).
+    No live LLM/DB — executor + audit sink injected, so the whole pipeline is unit-testable.
+    Permissions enforced in code, model output always re-validated. 22/22 tests green. Merged
+    via **PR #17**.
 
 ## 🚧 In progress — Milestone 2 (Auth & UX shell)
 
@@ -46,7 +40,9 @@
 
 ## ▶️ Next
 
-- Owner: merge M3 + M4 to `main`; complete the Vercel steps to unblock M2 login/MFA deploys.
+- Owner: complete the Vercel steps (`DATABASE_URL`, `ENCRYPTION_KEY`, monorepo build-command
+  override) to unblock the M2 login/MFA production deploys, then merge `milestone-2/login` and
+  `milestone-2/mfa`.
 
 ## 💵 Cost
 
