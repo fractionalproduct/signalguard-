@@ -471,3 +471,42 @@ h2 {
   font-size: 15px;
   letter-spacing: 0.04em;
 }
+
+/* Add-source form (M5) */
+.add-source-form { margin-top: 28px; }
+.add-source-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.add-source-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.add-source-input {
+  flex: 1 1 280px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(154, 163, 178, 0.35);
+  background: rgba(11, 16, 32, 0.55);
+  color: inherit;
+  font-size: 16px;
+}
+.add-source-submit {
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(154, 163, 178, 0.35);
+  background: rgba(255, 211, 138, 0.15);
+  color: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.add-source-submit:hover { background: rgba(255, 211, 138, 0.25); }
+.add-source-help { margin-top: 10px; }
+.add-source-note { text-align: left; margin-top: 24px; }
+.add-source-note p { margin: 0 0 8px; }
+.add-source-note p:last-child { margin-bottom: 0; }
+.add-source-ok { text-align: left; border-color: rgba(90, 209, 154, 0.5); }
+.add-source-error { text-align: left; border-color: rgba(255, 138, 138, 0.5); }
