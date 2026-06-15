@@ -64,6 +64,9 @@ importers:
       '@signalguard/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@signalguard/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       next:
         specifier: ^14.2.13
         version: 14.2.35(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
