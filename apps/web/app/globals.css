@@ -326,3 +326,18 @@ h2 {
 .positive { color: #5ad19a; }
 .negative { color: #ff8a8a; }
 .flat { color: var(--muted); }
+
+/* Signals inbox (M5) */
+.signal-group { margin-top: 24px; }
+.signal-group-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+.signal-confidence {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.signal-confidence.high { color: #5ad19a; }
+.signal-confidence.medium { color: #e8c468; }
+.signal-confidence.low { color: var(--muted); }

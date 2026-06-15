@@ -16,6 +16,8 @@
     "lib/money.ts",
     "lib/money.test.ts",
     "lib/portfolio-view.ts",
-    "lib/portfolio-view.test.ts"
+    "lib/portfolio-view.test.ts",
+    "lib/signals-view.ts",
+    "lib/signals-view.test.ts"
   ]
 }
