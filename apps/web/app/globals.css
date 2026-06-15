@@ -278,3 +278,51 @@ h2 {
     padding: 24px;
   }
 }
+
+/* ---- Read-only portfolio dashboard (Milestone 3) ---- */
+.account-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+  margin: 18px 0 26px;
+}
+.account-summary .stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid rgba(154, 163, 178, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.account-summary .stat-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.account-summary .stat-value {
+  font-size: 20px;
+  font-weight: 600;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0 24px;
+  font-variant-numeric: tabular-nums;
+}
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(154, 163, 178, 0.14);
+}
+.data-table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.positive { color: #5ad19a; }
+.negative { color: #ff8a8a; }
+.flat { color: var(--muted); }

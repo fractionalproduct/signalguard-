@@ -51,3 +51,6 @@ logs/
 # ---- Misc ----
 .turbo/
 .cache/
+
+# web test build output
+apps/web/dist-test/
