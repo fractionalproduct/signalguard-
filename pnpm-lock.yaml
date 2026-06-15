@@ -23,6 +23,18 @@ importers:
       '@signalguard/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@signalguard/congress':
+        specifier: workspace:*
+        version: link:../../packages/congress
+      '@signalguard/congress-agent':
+        specifier: workspace:*
+        version: link:../../packages/congress-agent
+      '@signalguard/congress-connectors':
+        specifier: workspace:*
+        version: link:../../packages/congress-connectors
+      '@signalguard/congress-ingestion':
+        specifier: workspace:*
+        version: link:../../packages/congress-ingestion
       '@signalguard/database':
         specifier: workspace:*
         version: link:../../packages/database
@@ -216,6 +228,37 @@ importers:
       '@signalguard/congress':
         specifier: workspace:*
         version: link:../congress
+      '@signalguard/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@signalguard/signals':
+        specifier: workspace:*
+        version: link:../signals
+      '@signalguard/source-connectors':
+        specifier: workspace:*
+        version: link:../source-connectors
+    devDependencies:
+      '@types/node':
+        specifier: ^22.7.4
+        version: 22.19.21
+      typescript:
+        specifier: ^5.6.2
+        version: 5.9.3
+
+  packages/congress-ingestion:
+    dependencies:
+      '@signalguard/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@signalguard/congress':
+        specifier: workspace:*
+        version: link:../congress
+      '@signalguard/congress-agent':
+        specifier: workspace:*
+        version: link:../congress-agent
+      '@signalguard/congress-connectors':
+        specifier: workspace:*
+        version: link:../congress-connectors
       '@signalguard/domain':
         specifier: workspace:*
         version: link:../domain
