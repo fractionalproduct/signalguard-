@@ -17,7 +17,14 @@ import {
   type SignalAnalysisInput,
   type SignalDraft,
 } from "@signalguard/signal-agent";
-import { ManualConnector, MockConnector, type Connector } from "@signalguard/source-connectors";
+import {
+  ManualConnector,
+  MockConnector,
+  BotApiTelegramClient,
+  TelegramConnector,
+  type Connector,
+  type TelegramBotClient,
+} from "@signalguard/source-connectors";
 import {
   runIngestionCycle,
   type IngestionPorts,
@@ -39,27 +46,52 @@ const auditSink: AuditSink = {
 };
 
 /**
- * Pick the connector for a source. The MVP only runs MANUAL and MOCK; external
- * kinds stay dormant (their DataSourceConfiguration would also have to be
- * APPROVED_FOR_PRODUCTION, but the adapters themselves land in later milestones).
- *
- * MANUAL currently yields nothing because owner-entered content has no input
- * surface yet (arrives with the M5f inbox); the wiring is in place so it starts
- * producing the moment that surface exists.
+ * Build the Telegram bot client once from the environment. Returns `undefined`
+ * when `TELEGRAM_BOT_TOKEN` is absent, in which case Telegram sources cannot run
+ * (connectorFor throws, and the pipeline counts that as a sourcesErrored).
  */
-function connectorFor(source: Source): Connector {
-  switch (source.kind) {
-    case "MANUAL":
-      return new ManualConnector([]);
-    case "MOCK":
-      return new MockConnector([]);
-    default:
-      throw new Error(`connector for kind ${source.kind} is not enabled yet`);
-  }
+function buildTelegramClient(): TelegramBotClient | undefined {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return undefined;
+  return new BotApiTelegramClient({ token });
 }
 
 /** Build the Prisma- and agent-backed ports for the ingestion pipeline. */
 export function createIngestionPorts(db: Db): IngestionPorts {
+  // Built once and captured by connectorFor below so every Telegram source
+  // shares one bot client (one token, global fetch).
+  const telegramClient = buildTelegramClient();
+
+  /**
+   * Pick the connector for a source. The MVP runs MANUAL, MOCK and TELEGRAM;
+   * other external kinds stay dormant (their DataSourceConfiguration would also
+   * have to be APPROVED_FOR_PRODUCTION, but the adapters land in later
+   * milestones).
+   *
+   * MANUAL currently yields nothing because owner-entered content has no input
+   * surface yet (arrives with the M5f inbox); the wiring is in place so it
+   * starts producing the moment that surface exists.
+   */
+  function connectorFor(source: Source): Connector {
+    switch (source.kind) {
+      case "MANUAL":
+        return new ManualConnector([]);
+      case "MOCK":
+        return new MockConnector([]);
+      case "TELEGRAM": {
+        if (!telegramClient) {
+          throw new Error("TELEGRAM_BOT_TOKEN is not set; Telegram sources cannot run");
+        }
+        // Omit the per-channel `sinceUpdateId` cursor for now: the pipeline's
+        // content-hash dedupe already prevents reprocessing. Tracking the cursor
+        // per channel is a future optimization to cut redundant getUpdates work.
+        return new TelegramConnector(telegramClient, source.name);
+      }
+      default:
+        throw new Error(`connector for kind ${source.kind} is not enabled yet`);
+    }
+  }
+
   const registry = new AgentRegistry();
   const prompts = new PromptRegistry();
   const review = new HumanReviewQueue();
