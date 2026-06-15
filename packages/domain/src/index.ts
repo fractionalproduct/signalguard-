@@ -246,8 +246,18 @@ export interface Signal {
 /** Which chamber a filing comes from. */
 export type Chamber = "HOUSE" | "SENATE";
 
+/** Runtime list of all chambers (keep in sync with the Chamber type). */
+export const CHAMBERS = ["HOUSE", "SENATE"] as const satisfies readonly Chamber[];
+
 /** Reported transaction type on a congressional periodic transaction report. */
 export type CongressionalTransactionType = "PURCHASE" | "SALE" | "EXCHANGE";
+
+/** Runtime list of all transaction types (keep in sync with the type above). */
+export const CONGRESSIONAL_TRANSACTION_TYPES = [
+  "PURCHASE",
+  "SALE",
+  "EXCHANGE",
+] as const satisfies readonly CongressionalTransactionType[];
 
 /**
  * A structured congressional disclosure (a periodic transaction report line),
