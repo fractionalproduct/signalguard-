@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "outDir": "dist-test",
+    "rootDir": ".",
+    "noEmit": false,
+    "types": ["node"]
+  },
+  "include": [
+    "lib/money.ts",
+    "lib/money.test.ts",
+    "lib/portfolio-view.ts",
+    "lib/portfolio-view.test.ts",
+    "lib/signals-view.ts",
+    "lib/signals-view.test.ts"
+  ]
+}

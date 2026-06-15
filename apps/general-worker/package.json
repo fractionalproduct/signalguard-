@@ -13,9 +13,14 @@
     "test": "echo \"(tests added in later milestones)\""
   },
   "dependencies": {
+    "@signalguard/agent-core": "workspace:*",
     "@signalguard/audit": "workspace:*",
     "@signalguard/config": "workspace:*",
-    "@signalguard/database": "workspace:*"
+    "@signalguard/database": "workspace:*",
+    "@signalguard/domain": "workspace:*",
+    "@signalguard/ingestion": "workspace:*",
+    "@signalguard/signal-agent": "workspace:*",
+    "@signalguard/source-connectors": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",

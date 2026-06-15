@@ -7,7 +7,7 @@
     "ghcr.io/devcontainers/features/node:1": { "version": "20" },
     "ghcr.io/devcontainers/features/git:1": {}
   },
-  "postCreateCommand": "corepack enable && corepack prepare pnpm@latest --activate && echo 'Dev container ready. Run pnpm install once packages exist.'",
+  "postCreateCommand": "corepack enable && corepack prepare pnpm@latest --activate && bash .devcontainer/install-claude-prod-guard.sh && echo 'Dev container ready. Run pnpm install once packages exist.'",
   "forwardPorts": [3000, 5432, 6379],
   "portsAttributes": {
     "3000": { "label": "Web Portal" },
