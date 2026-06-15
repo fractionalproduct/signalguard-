@@ -152,6 +152,19 @@ export function isApprovedForProduction(
 export type SourceKind = "MANUAL" | "MOCK" | "X" | "TELEGRAM" | "RSS" | "CONGRESS";
 
 /**
+ * Runtime list of every SourceKind, for validating untrusted input. Keep in sync
+ * with the SourceKind type above — `satisfies` checks each entry is a valid kind.
+ */
+export const SOURCE_KINDS = [
+  "MANUAL",
+  "MOCK",
+  "X",
+  "TELEGRAM",
+  "RSS",
+  "CONGRESS",
+] as const satisfies readonly SourceKind[];
+
+/**
  * A licensing record for one data provider/dataset. Every `Source` references
  * one of these; no connector runs without it. Fields mirror docs/data-licensing.md.
  */
