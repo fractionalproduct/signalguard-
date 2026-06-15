@@ -26,3 +26,12 @@ export {
 } from "./connector.js";
 export { ManualConnector, type ManualEntry } from "./manual.js";
 export { MockConnector } from "./mock.js";
+export {
+  TelegramConnector,
+  BotApiTelegramClient,
+  type TelegramMessage,
+  type TelegramBotClient,
+  type TelegramConnectorOptions,
+  type BotApiOptions,
+  type FetchLike,
+} from "./telegram.js";

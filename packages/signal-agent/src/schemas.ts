@@ -1,6 +1,6 @@
 import type { Schema } from "@signalguard/agent-core";
 import { validateSignalDraft, type SignalDraft } from "@signalguard/signals";
-import type { SourceKind } from "@signalguard/domain";
+import { SOURCE_KINDS, type SourceKind } from "@signalguard/domain";
 
 /**
  * Input to the Signal Analysis agent: one piece of source content plus light
@@ -12,7 +12,6 @@ export interface SignalAnalysisInput {
   sourceName?: string;
 }
 
-const SOURCE_KINDS: readonly SourceKind[] = ["MANUAL", "MOCK", "X", "TELEGRAM", "RSS"];
 
 /** Validate untrusted input into a SignalAnalysisInput (deny-by-default). */
 export const validateSignalAnalysisInput: Schema<SignalAnalysisInput> = (input) => {
