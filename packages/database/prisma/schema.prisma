@@ -122,6 +122,20 @@ enum SourceKind {
   X
   TELEGRAM
   RSS
+  CONGRESS
+}
+
+/// Congressional chamber a filing originates from (M6).
+enum Chamber {
+  HOUSE
+  SENATE
+}
+
+/// Reported transaction type on a congressional periodic transaction report.
+enum CongressionalTransactionType {
+  PURCHASE
+  SALE
+  EXCHANGE
 }
 
 /// Lifecycle of an extracted signal. Mirrors SignalStatus in @signalguard/domain.
@@ -192,7 +206,8 @@ model SourceContent {
   fetchedAt   DateTime  @default(now())
   metadata    Json?
 
-  signals Signal[]
+  signals     Signal[]
+  disclosures CongressionalDisclosure[]
 
   @@unique([sourceId, contentHash])
   @@index([sourceId])
@@ -218,4 +233,29 @@ model Signal {
   @@index([sourceContentId])
   @@index([status])
   @@index([symbol])
+}
+
+/// A structured congressional periodic-transaction-report line (M6), parsed from
+/// an official filing held as SourceContent. Amounts are reported as a range and
+/// stored as integer cents. Mirrors CongressionalDisclosure in @signalguard/domain.
+model CongressionalDisclosure {
+  id               String                       @id @default(cuid())
+  sourceContentId  String
+  sourceContent    SourceContent                @relation(fields: [sourceContentId], references: [id], onDelete: Cascade)
+  representative   String
+  chamber          Chamber
+  symbol           String?
+  assetDescription String
+  transactionType  CongressionalTransactionType
+  amountRangeLow   Int
+  amountRangeHigh  Int
+  transactionDate  DateTime
+  filedDate        DateTime
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+
+  @@index([sourceContentId])
+  @@index([symbol])
+  @@index([representative])
+  @@index([transactionDate])
 }

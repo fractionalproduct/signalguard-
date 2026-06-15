@@ -149,7 +149,7 @@ export function isApprovedForProduction(
  * `DataSourceConfiguration` can be registered ahead of licensing approval, but
  * their connectors stay dormant until APPROVED_FOR_PRODUCTION (M6+ wires them).
  */
-export type SourceKind = "MANUAL" | "MOCK" | "X" | "TELEGRAM" | "RSS";
+export type SourceKind = "MANUAL" | "MOCK" | "X" | "TELEGRAM" | "RSS" | "CONGRESS";
 
 /**
  * A licensing record for one data provider/dataset. Every `Source` references
@@ -226,4 +226,49 @@ export interface Signal {
   status: SignalStatus;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// --- Milestone 6: congressional monitoring -------------------------------------
+
+/** Which chamber a filing comes from. */
+export type Chamber = "HOUSE" | "SENATE";
+
+/** Reported transaction type on a congressional periodic transaction report. */
+export type CongressionalTransactionType = "PURCHASE" | "SALE" | "EXCHANGE";
+
+/**
+ * A structured congressional disclosure (a periodic transaction report line),
+ * parsed from an official filing held as SourceContent. Amounts are reported as
+ * a range (e.g. $1,001–$15,000), stored as integer cents. Public-record data,
+ * but still subject to a DataSourceConfiguration like any other source.
+ */
+export interface CongressionalDisclosure {
+  id: string;
+  /** The raw filing this was parsed from. */
+  sourceContentId: string;
+  /** Filer name as it appears on the record. */
+  representative: string;
+  chamber: Chamber;
+  /** Ticker, uppercased, or null when the asset has no public ticker. */
+  symbol: string | null;
+  /** Asset description as filed (e.g. "Apple Inc. - Common Stock"). */
+  assetDescription: string;
+  transactionType: CongressionalTransactionType;
+  /** Lower/upper bound of the reported amount range, in integer cents. */
+  amountRangeLow: Cents;
+  amountRangeHigh: Cents;
+  /** When the trade occurred. */
+  transactionDate: Date;
+  /** When the disclosure was filed (drives recency vs. the trade date). */
+  filedDate: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Midpoint of a reported amount range, in cents — a simple point estimate of a
+ * disclosed trade's size for downstream analysis. Order-insensitive.
+ */
+export function amountRangeMidpointCents(low: Cents, high: Cents): Cents {
+  return Math.round((low + high) / 2);
 }
