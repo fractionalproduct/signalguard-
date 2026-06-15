@@ -186,6 +186,31 @@ importers:
         specifier: ^5.6.2
         version: 5.9.3
 
+  packages/congress-agent:
+    dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.104.2
+        version: 0.104.2(zod@3.25.76)
+      '@signalguard/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@signalguard/congress':
+        specifier: workspace:*
+        version: link:../congress
+      '@signalguard/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@signalguard/signals':
+        specifier: workspace:*
+        version: link:../signals
+    devDependencies:
+      '@types/node':
+        specifier: ^22.7.4
+        version: 22.19.21
+      typescript:
+        specifier: ^5.6.2
+        version: 5.9.3
+
   packages/congress-connectors:
     dependencies:
       '@signalguard/congress':
