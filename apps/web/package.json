@@ -12,16 +12,20 @@
     "test": "node --test dist-test/lib/money.test.js dist-test/lib/portfolio-view.test.js dist-test/lib/signals-view.test.js"
   },
   "dependencies": {
+    "@signalguard/audit": "workspace:*",
+    "@signalguard/auth": "workspace:*",
     "@signalguard/broker-adapters": "workspace:*",
     "@signalguard/config": "workspace:*",
     "@signalguard/database": "workspace:*",
     "next": "^14.2.13",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",
+    "@types/qrcode": "^1.5.5",
     "@types/react": "^18.3.10",
     "@types/react-dom": "^18.3.0",
     "cross-env": "^7.0.3",

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { logoutAction } from "../login/actions";
 
 const navItems = [
   { href: "/home", label: "Home" },
@@ -20,7 +21,13 @@ function StatusPill({ label }: { label: string }) {
   );
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  ownerEmail,
+}: {
+  children: ReactNode;
+  ownerEmail: string;
+}) {
   return (
     <div className="app-shell">
       <header className="global-header" aria-label="Global status header">
@@ -51,8 +58,15 @@ export function AppShell({ children }: { children: ReactNode }) {
               Emergency Stop
             </button>
           </span>
-          <div className="user-menu-placeholder" aria-label="User menu placeholder">
-            Owner
+          <div className="user-menu">
+            <span className="user-email" title={ownerEmail}>
+              {ownerEmail}
+            </span>
+            <form action={logoutAction}>
+              <button className="signout-button" type="submit">
+                Sign out
+              </button>
+            </form>
           </div>
         </div>
       </header>

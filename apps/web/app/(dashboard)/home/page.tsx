@@ -1,5 +1,5 @@
-import { PortfolioDashboard } from "../components/PortfolioDashboard";
-import { loadPortfolioState } from "../../lib/portfolio";
+import { PortfolioDashboard } from "../../components/PortfolioDashboard";
+import { loadPortfolioState } from "../../../lib/portfolio";
 
 // The dashboard reads live (paper) broker data at request time, so it must never
 // be statically rendered at build — there are no credentials during `next build`.

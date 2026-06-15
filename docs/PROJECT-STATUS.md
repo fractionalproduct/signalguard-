@@ -1,7 +1,30 @@
 # Project Status
 
 > Quick "where are we" snapshot so any session can resume instantly.
-> Last updated: 2026-06-15 (M3 + M4 built overnight; awaiting owner merges).
+> Last updated: 2026-06-15 (M2 auth shell — login + 2FA — brought current with main; awaiting owner Vercel steps).
+
+## 🔭 Active right now (Milestone 2 — Authentication)
+
+- ✅ Auth engine (`@signalguard/auth`): scrypt passwords, RFC-6238 TOTP, recovery
+  codes, AES-256-GCM encryption — merged.
+- ✅ Auth DB schema (`Session`, `RecoveryCode`, `PasswordResetToken`, Owner MFA
+  fields) — applied to Supabase + merged.
+- ✅ Owner account created via `pnpm create-owner` (prazmanb@gmail.com).
+- 🔀 **Login page** — branch `milestone-2/login`: /login form, Prisma-backed
+  sessions (HTTP-only cookie + hash), (dashboard) route group with auth guard,
+  edge middleware, logout. Being deployed (lockfile fixed; Vercel needs Build
+  Command override `cd ../.. && pnpm --filter "@signalguard/web..." build` + env
+  var `DATABASE_URL`).
+- 🔀 **Two-factor (2FA)** — branch `milestone-2/mfa` (built on top of login):
+  - Settings → Security page: QR-code enrollment (uses `qrcode` dep) + recovery
+    codes shown once.
+  - Two-step login: password → `/login/mfa` (TOTP or recovery code) → session.
+  - TOTP secret stored encrypted (needs **`ENCRYPTION_KEY`** env var on Vercel,
+    32-byte base64/hex — generate: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`).
+  - **Merge order: login first, then mfa.** Needs build verification.
+
+## ⏭️ Remaining in Milestone 2
+- Password reset flow. Optional: force MFA enrollment on first login.
 
 ## ✅ Done
 

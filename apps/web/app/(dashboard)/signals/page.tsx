@@ -1,5 +1,5 @@
-import { SignalsInbox } from "../components/SignalsInbox";
-import { loadSignalsState } from "../../lib/signals";
+import { SignalsInbox } from "../../components/SignalsInbox";
+import { loadSignalsState } from "../../../lib/signals";
 
 // The inbox reads signal rows at request time; never statically render it at
 // build (there is no DATABASE_URL during `next build`).
