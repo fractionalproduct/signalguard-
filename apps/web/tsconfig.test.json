@@ -19,6 +19,8 @@
     "lib/portfolio-view.test.ts",
     "lib/signals-view.ts",
     "lib/signals-view.test.ts",
+    "lib/congress-view.ts",
+    "lib/congress-view.test.ts",
     "lib/telegram-channel.ts",
     "lib/telegram-channel.test.ts"
   ]

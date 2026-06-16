@@ -1,90 +1,98 @@
 # Project Status
 
 > Quick "where are we" snapshot so any session can resume instantly.
-> Last updated: 2026-06-15 (M2 auth shell — login + 2FA — brought current with main; awaiting owner Vercel steps).
+> Last updated: 2026-06-16 (refreshed end-to-end: M2 auth, M3 dashboard, M4 agent
+> foundation, and M5 signals all merged to `main`; M6 congressional disclosures
+> built + verified, awaiting owner merge).
 
-## 🔭 Active right now (Milestone 2 — Authentication)
+## 🔭 Active right now (Milestone 6 — Congressional disclosures)
 
-- ✅ Auth engine (`@signalguard/auth`): scrypt passwords, RFC-6238 TOTP, recovery
-  codes, AES-256-GCM encryption — merged.
-- ✅ Auth DB schema (`Session`, `RecoveryCode`, `PasswordResetToken`, Owner MFA
-  fields) — applied to Supabase + merged.
-- ✅ Owner account created via `pnpm create-owner` (prazmanb@gmail.com).
-- 🔀 **Login page** — branch `milestone-2/login`: /login form, Prisma-backed
-  sessions (HTTP-only cookie + hash), (dashboard) route group with auth guard,
-  edge middleware, logout. Being deployed (lockfile fixed; Vercel needs Build
-  Command override `cd ../.. && pnpm --filter "@signalguard/web..." build` + env
-  var `DATABASE_URL`).
-- 🔀 **Two-factor (2FA)** — branch `milestone-2/mfa` (built on top of login):
-  - Settings → Security page: QR-code enrollment (uses `qrcode` dep) + recovery
-    codes shown once.
-  - Two-step login: password → `/login/mfa` (TOTP or recovery code) → session.
-  - TOTP secret stored encrypted (needs **`ENCRYPTION_KEY`** env var on Vercel,
-    32-byte base64/hex — generate: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`).
-  - **Merge order: login first, then mfa.** Needs build verification.
+The full M6 stack is **built, verified green, and pushed**, but **not yet merged to
+`main`** (merging to `main` deploys the live site and is owner-only — AGENTS.md §19).
 
-## ⏭️ Remaining in Milestone 2
-- Password reset flow. Optional: force MFA enrollment on first login.
+- Branch **`milestone-6/inbox`** — 5 commits ahead of `main`, 0 behind. Gate passes:
+  `pnpm install`, `pnpm -r typecheck`, `pnpm -r build`, `pnpm -r test` all green.
+- The stack (each layer pure/tested, gated, fail-closed):
+  - **M6b `@signalguard/congress`** — pure parsing: PTR amount-range → integer cents,
+    raw filing line → validated `CongressionalDisclosureDraft` (deny-by-default),
+    SHA-256 trade-identity dedupe key.
+  - **M6c `@signalguard/congress-connectors`** — gated, **fixture-first** House Clerk /
+    Senate eFD PTR connector over the generic connector machinery. The licensing gate
+    is enforced *before* any fetch; live HTTP is a later, separately-gated step.
+  - **M6d `@signalguard/congress-agent`** — `congress-analysis` agent on a live Claude
+    (`claude-opus-4-8`) executor. Analytical only (`canAccessExecution=false`, empty
+    tool allowlist — can never reach the broker path). Hostile free-text is fenced;
+    output is always re-validated/sanitized.
+  - **M6e `@signalguard/congress-ingestion`** + general-worker wiring — pure pipeline
+    (gate → fetch → content-dedupe → parse → trade-identity dedupe → persist → triage).
+    The deterministic parse is the product; triage is best-effort. Worker loop is gated
+    by `CONGRESS_INGESTION_ENABLED` (**OFF by default**), never throws into the worker.
+  - **M6f** — read-only `/congress` inbox in the web app (dashboard route group, reuses
+    the auth guard + shell; pure deterministic view-model; 7 view tests).
 
-## ✅ Done
+→ **Owner action:** open/merge the `milestone-6/inbox` PR to `main` to ship M6.
 
-- **Milestone 0** — repository & cloud-readiness foundation (docs, dev container, CI).
+## ⏭️ Also ready for review
+
+- **`feature/telegram-add-channel-ui`** — owner-facing "Add a Telegram channel" form
+  (fail-closed write path) + `/sources` admin page. **Rebased onto `main`** (1 ahead,
+  0 behind); web typecheck/build/test green (31/31). Ready for PR → owner merge.
+
+## ✅ Done & merged to `main`
+
+- **Milestone 0** — repo & cloud-readiness foundation (docs, dev container, CI).
 - **Milestone 1** — monorepo foundation, **deployed and running in the cloud**:
-  - 🌐 **Web portal** → Vercel (live; shows PAPER TRADING banner + `/api/health`)
-  - 🗄️ **Database** → Supabase (`Owner` + `AuditEvent` tables, RLS locked)
-  - ⚙️ **General worker** → Railway (always-on, green)
-  - 🔒 **Trading worker** → Railway (always-on, green; paper-mode guard active)
-  - All four run independently of the owner's laptop.
-- **Owner account creation** (`pnpm create-owner`) — merged to `main` (M2c).
-- **Verified + merged to `main`** (each: builds + tests pass, lockfile regenerated with pnpm 9.12.0):
-  - `@signalguard/risk-engine` — deterministic risk engine (AGENTS.md §10). **Safety-critical;
-    rule logic reviewed against §10:** all 26 block codes present, conservative boundary operators
-    (loss limits block at `>=`), reports every triggered block, pure function. 3/3 tests pass.
-  - `@signalguard/position-sizing` — pure position sizing (smallest cap wins; long-only). 8/8 tests.
-  - `@signalguard/broker-adapters` — **read-only** Alpaca **paper** client (no order submission;
-    refuses live endpoint + non-paper `TRADING_MODE`). 5/5 tests.
-  - `@signalguard/performance` — performance package (merged via the overnight integration batch).
-  - `pnpm reset-password` CLI — resets owner password + revokes all sessions.
-
-## 🟢 Built overnight, awaiting owner merge to `main`
-
-> Merging to `main` is owner-only (AGENTS.md). Both are pushed to origin and verified.
-
-- **`milestone-4/agent-foundation`** — `@signalguard/agent-core` (v0.1.0): deterministic
-  scaffolding every agent runs on (AgentRegistry, PromptRegistry, AgentToolGateway,
-  HumanReviewQueue, AgentOrchestrator). No live LLM/DB — executor + audit sink injected, so the
-  whole pipeline is unit-testable. Permissions enforced in code, model output always re-validated.
-  **22/22 tests green; full `pnpm -r` gate passes.** 1 ahead, 0 behind `main` — ready to merge.
-- **`milestone-3/portfolio-dashboard`** — read-only portfolio dashboard on the paper broker
-  adapter (pure `money`/`portfolio-view` libs, server-only loader, presentational UI). Verified.
-  1 ahead, **2 behind `main`** — rebase/merge `main` before merging.
-
-## 🚧 In progress — Milestone 2 (Auth & UX shell)
-
-- **`milestone-2/login`** — login page, DB-backed sessions, `(dashboard)` route guard, logout.
-  Code verified locally (build + typecheck + tests green). **Blocked on owner Vercel steps**
-  (Build Command override + `DATABASE_URL`), then merge → production.
-- **`milestone-2/mfa`** — TOTP 2FA + recovery codes (built on top of login). Code verified
-  (build + tests green). Needs Vercel env var **`ENCRYPTION_KEY`** before its production deploy.
+  - 🌐 **Web portal** → Vercel (live; PAPER TRADING banner + `/api/health`)
+  - 🗄️ **Database** → Supabase (`Owner` + `AuditEvent`, RLS locked)
+  - ⚙️ **General worker** → Railway (always-on) · 🔒 **Trading worker** → Railway
+    (always-on, paper-mode guard active). All four run independently of the laptop.
+- **Milestone 2 — Authentication (fully merged):** auth engine (`@signalguard/auth`:
+  scrypt, RFC-6238 TOTP, recovery codes, AES-256-GCM), auth DB schema, owner account
+  (`pnpm create-owner`, prazmanb@gmail.com), **login page** + DB-backed sessions +
+  `(dashboard)` auth guard + logout, **2FA** (QR enrollment, recovery codes, two-step
+  login), and `pnpm reset-password` CLI.
+- **Milestone 3** — read-only **portfolio dashboard** on the paper broker adapter
+  (pure `money`/`portfolio-view` libs, server-only loader, presentational UI).
+- **Milestone 4** — `@signalguard/agent-core`: deterministic agent scaffolding
+  (AgentRegistry, PromptRegistry, AgentToolGateway, HumanReviewQueue, Orchestrator);
+  executor + audit sink injected, permissions enforced in code, output always re-validated.
+- **Safety-critical libs** (reviewed against AGENTS.md §10): `@signalguard/risk-engine`
+  (all 26 block codes, conservative boundaries), `@signalguard/position-sizing`
+  (smallest cap wins, long-only), `@signalguard/broker-adapters` (**read-only** Alpaca
+  **paper** client; refuses live endpoint + non-paper `TRADING_MODE`), `@signalguard/performance`.
+- **Milestone 5 — Signals pipeline (fully merged):** schema, `@signalguard/signals`,
+  `@signalguard/source-connectors` (gated, deny-by-default), `signal-agent`, the
+  worker ingestion loop, and the read-only **signals inbox** in the web app.
+- **Milestone 6 schema** (`milestone-6/schema`) — `CongressionalDisclosure` + source rows.
+- **Telegram connector** + **worker wiring** — bot-we-control channel connector
+  (compliant, not scraping) wired into general-worker ingestion.
 
 ## ▶️ Next
 
-- Owner: merge M3 + M4 to `main`; complete the Vercel steps to unblock M2 login/MFA deploys.
+1. Owner: merge **`milestone-6/inbox`** → `main` to ship M6 (the congress inbox is
+   read-only; the live PTR feed + `CONGRESS_INGESTION_ENABLED` stay OFF until a
+   separately-gated step).
+2. Owner: review/merge **`feature/telegram-add-channel-ui`**.
+3. To actually *run* congress ingestion later: set `CONGRESS_INGESTION_ENABLED=true`
+   plus `ANTHROPIC_API_KEY` on the general worker (still fixture-driven until a live
+   feed lands).
 
 ## 💵 Cost
 
-- ~**$5/month** (Railway, after free trial). Vercel + Supabase free. AI usage added at later milestones.
+- ~**$5/month** (Railway, after free trial). Vercel + Supabase free tiers. Claude API
+  usage begins when the signal/congress agents run against live data.
 
 ## 🔌 Services & wiring notes
 
 - Supabase: connection strings (Connect → ORM tab) live in the owner's password manager.
-  `DATABASE_URL` = pooled (6543, pgbouncer), `DIRECT_URL` = direct (5432). Add `DATABASE_URL`
-  to Vercel for the login deploy.
-- Vercel build command override (monorepo): `cd ../.. && pnpm --filter "@signalguard/web..." build`.
-- Upstash (Redis) account exists; not wired yet (used when worker queues come online).
-- Alpaca paper account: needed when the read-only dashboard goes live (M3). AI provider: M4.
+  `DATABASE_URL` = pooled (6543, pgbouncer); `DIRECT_URL` = direct (5432, migrations).
+- Vercel build-command override (monorepo): `cd ../.. && pnpm --filter "@signalguard/web..." build`.
+  Env on Vercel: `DATABASE_URL`, `SESSION_SECRET`, `ENCRYPTION_KEY` (32-byte base64/hex —
+  `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`).
+- Upstash (Redis) account exists; wired when worker queues come online.
+- Alpaca paper account: powers the read-only dashboard. AI provider: `ANTHROPIC_API_KEY`.
 
 ## How to resume
 
-Open Claude Code and say: **"Continue SignalGuard — Milestone 2."**
-Repo: `github.com/fractionalproduct/signalguard-` · Local: `C:\projects\SignalGuard`
+Open Claude Code and say: **"Continue SignalGuard — Milestone 6."**
+Repo: `github.com/fractionalproduct/signalguard-`
