@@ -1,42 +1,16 @@
 # Project Status
 
 > Quick "where are we" snapshot so any session can resume instantly.
-> Last updated: 2026-06-16 (refreshed end-to-end: M2 auth, M3 dashboard, M4 agent
-> foundation, and M5 signals all merged to `main`; M6 congressional disclosures
-> built + verified, awaiting owner merge).
+> Last updated: 2026-06-16 (M6 congressional disclosures merged to `main` via PR #28;
+> the owner-facing Telegram "Add a channel" UI merged via PR #29. Everything through
+> M6 is now shipped and live; no feature branches are awaiting merge).
 
-## 🔭 Active right now (Milestone 6 — Congressional disclosures)
+## 🔭 Active right now
 
-The full M6 stack is **built, verified green, and pushed**, but **not yet merged to
-`main`** (merging to `main` deploys the live site and is owner-only — AGENTS.md §19).
-
-- Branch **`milestone-6/inbox`** — 5 commits ahead of `main`, 0 behind. Gate passes:
-  `pnpm install`, `pnpm -r typecheck`, `pnpm -r build`, `pnpm -r test` all green.
-- The stack (each layer pure/tested, gated, fail-closed):
-  - **M6b `@signalguard/congress`** — pure parsing: PTR amount-range → integer cents,
-    raw filing line → validated `CongressionalDisclosureDraft` (deny-by-default),
-    SHA-256 trade-identity dedupe key.
-  - **M6c `@signalguard/congress-connectors`** — gated, **fixture-first** House Clerk /
-    Senate eFD PTR connector over the generic connector machinery. The licensing gate
-    is enforced *before* any fetch; live HTTP is a later, separately-gated step.
-  - **M6d `@signalguard/congress-agent`** — `congress-analysis` agent on a live Claude
-    (`claude-opus-4-8`) executor. Analytical only (`canAccessExecution=false`, empty
-    tool allowlist — can never reach the broker path). Hostile free-text is fenced;
-    output is always re-validated/sanitized.
-  - **M6e `@signalguard/congress-ingestion`** + general-worker wiring — pure pipeline
-    (gate → fetch → content-dedupe → parse → trade-identity dedupe → persist → triage).
-    The deterministic parse is the product; triage is best-effort. Worker loop is gated
-    by `CONGRESS_INGESTION_ENABLED` (**OFF by default**), never throws into the worker.
-  - **M6f** — read-only `/congress` inbox in the web app (dashboard route group, reuses
-    the auth guard + shell; pure deterministic view-model; 7 view tests).
-
-→ **Owner action:** open/merge the `milestone-6/inbox` PR to `main` to ship M6.
-
-## ⏭️ Also ready for review
-
-- **`feature/telegram-add-channel-ui`** — owner-facing "Add a Telegram channel" form
-  (fail-closed write path) + `/sources` admin page. **Rebased onto `main`** (1 ahead,
-  0 behind); web typecheck/build/test green (31/31). Ready for PR → owner merge.
+Nothing in flight — the last two open items (M6 and the Telegram add-channel UI)
+both merged to `main` and deployed. The next moves are the gated, owner-driven
+rollout steps under **▶️ Next** (turning on the live congress feed), not new code
+waiting for review.
 
 ## ✅ Done & merged to `main`
 
@@ -66,16 +40,32 @@ The full M6 stack is **built, verified green, and pushed**, but **not yet merged
 - **Milestone 6 schema** (`milestone-6/schema`) — `CongressionalDisclosure` + source rows.
 - **Telegram connector** + **worker wiring** — bot-we-control channel connector
   (compliant, not scraping) wired into general-worker ingestion.
+- **Milestone 6 — Congressional disclosures (PR #28):** the full stack, each layer
+  pure/tested, gated, fail-closed:
+  - **M6b `@signalguard/congress`** — pure parsing: PTR amount-range → integer cents,
+    raw filing line → validated `CongressionalDisclosureDraft` (deny-by-default),
+    SHA-256 trade-identity dedupe key.
+  - **M6c `@signalguard/congress-connectors`** — gated, **fixture-first** House Clerk /
+    Senate eFD PTR connector. The licensing gate is enforced *before* any fetch; live
+    HTTP is a later, separately-gated step.
+  - **M6d `@signalguard/congress-agent`** — `congress-analysis` agent on a live Claude
+    (`claude-opus-4-8`) executor. Analytical only (`canAccessExecution=false`, empty
+    tool allowlist — can never reach the broker path). Hostile free-text is fenced;
+    output is always re-validated/sanitized.
+  - **M6e `@signalguard/congress-ingestion`** + general-worker wiring — pure pipeline
+    (gate → fetch → content-dedupe → parse → trade-identity dedupe → persist → triage),
+    gated by `CONGRESS_INGESTION_ENABLED` (**OFF by default**), never throws into the worker.
+  - **M6f** — read-only `/congress` inbox in the web app (dashboard route group, reuses
+    the auth guard + shell; pure deterministic view-model; 7 view tests).
+- **Telegram "Add a channel" UI (PR #29)** — owner-facing add-channel form (fail-closed
+  write path) + `/sources` admin page; web typecheck/build/test green (31/31).
 
 ## ▶️ Next
 
-1. Owner: merge **`milestone-6/inbox`** → `main` to ship M6 (the congress inbox is
-   read-only; the live PTR feed + `CONGRESS_INGESTION_ENABLED` stay OFF until a
-   separately-gated step).
-2. Owner: review/merge **`feature/telegram-add-channel-ui`**.
-3. To actually *run* congress ingestion later: set `CONGRESS_INGESTION_ENABLED=true`
-   plus `ANTHROPIC_API_KEY` on the general worker (still fixture-driven until a live
-   feed lands).
+1. To actually *run* congress ingestion: set `CONGRESS_INGESTION_ENABLED=true` plus
+   `ANTHROPIC_API_KEY` on the general worker (still fixture-driven until a live feed
+   lands). The `/congress` inbox stays read-only; the live PTR feed remains OFF until
+   this separately-gated step.
 
 ## 💵 Cost
 
