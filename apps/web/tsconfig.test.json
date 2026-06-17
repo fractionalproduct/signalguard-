@@ -26,6 +26,9 @@
     "lib/research-view.ts",
     "lib/research-view.test.ts",
     "lib/cron-auth.ts",
-    "lib/cron-auth.test.ts"
+    "lib/cron-auth.test.ts",
+    "lib/research-view.ts",
+    "lib/research-symbol-view.ts",
+    "lib/research-symbol-view.test.ts"
   ]
 }
