@@ -1,7 +1,9 @@
 import { loadEnv, createLogger } from "@signalguard/config";
+import type { BarInterval } from "@signalguard/market-data";
 import { startHealthServer } from "./health.js";
 import { startIngestion } from "./ingestion.js";
 import { startCongressIngestion } from "./congress-ingestion.js";
+import { startWatchlistAnalysis } from "./watchlist-analysis.js";
 
 /**
  * General Background Worker.
@@ -53,6 +55,30 @@ function main(): void {
     logger.info("congress ingestion disabled (set CONGRESS_INGESTION_ENABLED=true to enable)");
   }
 
+  // M7 watchlist analysis (technical + regime + manipulation per symbol).
+  // OFF by default — no real market-data adapter is wired yet, so leaving
+  // it on without one just produces empty-bars snapshots. WATCHLIST_SYMBOLS
+  // is a comma-separated list; bar interval comes from WATCHLIST_INTERVAL
+  // (one of "1m" | "5m" | "15m" | "1h" | "1d"; default "1d").
+  let watchlistAnalysis: { stop: () => void } | undefined;
+  if (process.env.WATCHLIST_ANALYSIS_ENABLED === "true") {
+    const symbols = (process.env.WATCHLIST_SYMBOLS ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    const barInterval = (process.env.WATCHLIST_INTERVAL ?? "1d") as BarInterval;
+    watchlistAnalysis = startWatchlistAnalysis({
+      intervalMs: Number(process.env.WATCHLIST_ANALYSIS_INTERVAL_MS ?? 300_000),
+      logger,
+      symbols,
+      barInterval,
+      lookbackBars: Number(process.env.WATCHLIST_LOOKBACK_BARS ?? 200),
+    });
+    logger.info({ symbolCount: symbols.length, barInterval }, "watchlist analysis enabled");
+  } else {
+    logger.info("watchlist analysis disabled (set WATCHLIST_ANALYSIS_ENABLED=true to enable)");
+  }
+
   logger.info(
     { nodeEnv: env.NODE_ENV, tradingMode: env.TRADING_MODE },
     "general worker started",
@@ -62,6 +88,7 @@ function main(): void {
     logger.info({ signal }, "shutting down");
     ingestion?.stop();
     congressIngestion?.stop();
+    watchlistAnalysis?.stop();
     server.close(() => process.exit(0));
     // Force-exit if close hangs.
     setTimeout(() => process.exit(1), 10_000).unref();
