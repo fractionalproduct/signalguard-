@@ -27,8 +27,25 @@ export async function loginAction(
     return { error: "Enter your email and password." };
   }
 
-  const owner = await getDb().owner.findUnique({ where: { email } });
-  const passwordOk = await verifyPassword(password, owner?.passwordHash ?? DUMMY_HASH);
+  // Look up the owner and verify the password. Failures here are almost always
+  // operational (missing DATABASE_URL, schema not pushed, Prisma client not
+  // generated at deploy time) and we surface the real message so the single
+  // owner can fix it without digging through Vercel logs. SignalGuard is a
+  // single-owner system (AGENTS.md s0) so there is no public-user enumeration
+  // surface to protect here.
+  let owner: Awaited<ReturnType<typeof getOwnerByEmail>>;
+  let passwordOk: boolean;
+  try {
+    owner = await getOwnerByEmail(email);
+    passwordOk = await verifyPassword(password, owner?.passwordHash ?? DUMMY_HASH);
+  } catch (err) {
+    console.error("[login] db/auth check failed:", err);
+    return {
+      error: `Sign-in failed (server): ${
+        err instanceof Error ? err.message : "Unknown error."
+      }`,
+    };
+  }
 
   if (!owner || !owner.passwordHash || !passwordOk) {
     await recordAuditEvent({
@@ -39,22 +56,45 @@ export async function loginAction(
     return { error: "Invalid email or password." };
   }
 
-  // If two-factor is enabled, hold off on a real session: set a short-lived
-  // "pending" marker and require the second factor at /login/mfa.
-  if (owner.mfaEnabled) {
-    setPendingMfa(owner.id);
-    await recordAuditEvent({
-      type: "owner.login_password_ok",
-      source: "web",
-      ownerId: owner.id,
-    });
-    redirect("/login/mfa");
+  // Session setup (and MFA pending-state encryption) — same defensive wrapper.
+  // setPendingMfa() requires ENCRYPTION_KEY; createSessionForOwner() requires
+  // the DB. Surface either failure rather than throwing into the generic
+  // Next.js error page. `redirect()` is deliberately OUTSIDE this try/catch so
+  // its special NEXT_REDIRECT signal isn't swallowed.
+  let redirectTo: string;
+  try {
+    if (owner.mfaEnabled) {
+      setPendingMfa(owner.id);
+      await recordAuditEvent({
+        type: "owner.login_password_ok",
+        source: "web",
+        ownerId: owner.id,
+      });
+      redirectTo = "/login/mfa";
+    } else {
+      await createSessionForOwner(owner.id);
+      await recordAuditEvent({
+        type: "owner.login",
+        source: "web",
+        ownerId: owner.id,
+      });
+      redirectTo = "/home";
+    }
+  } catch (err) {
+    console.error("[login] session setup failed:", err);
+    return {
+      error: `Sign-in failed (server): ${
+        err instanceof Error ? err.message : "Unknown error."
+      }`,
+    };
   }
 
-  await createSessionForOwner(owner.id);
-  await recordAuditEvent({ type: "owner.login", source: "web", ownerId: owner.id });
+  redirect(redirectTo);
+}
 
-  redirect("/home");
+/** Thin wrapper so the try/catch boundary has a single async call to wrap. */
+function getOwnerByEmail(email: string) {
+  return getDb().owner.findUnique({ where: { email } });
 }
 
 export async function logoutAction(): Promise<void> {
