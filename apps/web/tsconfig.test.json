@@ -22,6 +22,8 @@
     "lib/congress-view.ts",
     "lib/congress-view.test.ts",
     "lib/telegram-channel.ts",
-    "lib/telegram-channel.test.ts"
+    "lib/telegram-channel.test.ts",
+    "lib/research-view.ts",
+    "lib/research-view.test.ts"
   ]
 }
