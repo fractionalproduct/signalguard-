@@ -259,3 +259,51 @@ model CongressionalDisclosure {
   @@index([representative])
   @@index([transactionDate])
 }
+
+/// One snapshot of the M7 deterministic analyses (technical indicators + market
+/// regime + manipulation detectors) for a single symbol at a single point in
+/// time. Written by the watchlist-analysis worker; read by the dashboard.
+///
+/// Stores integer cents for monetary values (matches market-data /
+/// broker-adapters conventions); indicator outputs and regime ratios are
+/// floats because they are intermediate analysis values, not money.
+///
+/// Fields are nullable when the bar history at compute time was shorter than
+/// the analyzer's warmup window — the consumer can render "—" rather than
+/// having to track warmup math.
+model TechnicalAnalysisSnapshot {
+  id                  String   @id @default(cuid())
+  symbol              String
+  computedAt          DateTime
+  /// One of "1m" | "5m" | "15m" | "1h" | "1d" — matches BarInterval in
+  /// @signalguard/market-data.
+  barInterval         String
+  barCount            Int
+  latestBarTimestamp  DateTime?
+  latestBarCloseCents Int?
+
+  // Technical indicators
+  sma20               Float?
+  ema20               Float?
+  rsi14               Float?
+  macd                Float?
+  macdSignal          Float?
+  macdHistogram       Float?
+  bollingerUpper      Float?
+  bollingerMiddle     Float?
+  bollingerLower      Float?
+
+  // Two-dimensional market regime
+  trendRegime         String?
+  volatilityRegime    String?
+
+  // Manipulation detector outputs (always populated; false on warmup)
+  unusualVolume       Boolean
+  pumpAndDump         Boolean
+  gapAndFade          Boolean
+
+  createdAt           DateTime @default(now())
+
+  @@index([symbol, computedAt(sort: Desc)])
+  @@index([computedAt(sort: Desc)])
+}

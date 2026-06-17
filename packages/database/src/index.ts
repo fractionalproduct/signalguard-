@@ -19,4 +19,15 @@ export function getDb(): PrismaClient {
 }
 
 export { PrismaClient };
-export type { Owner, AuditEvent } from "@prisma/client";
+export type {
+  AuditEvent,
+  Owner,
+  TechnicalAnalysisSnapshot,
+} from "@prisma/client";
+export {
+  buildSnapshotRow,
+  listLatestWatchlistSnapshots,
+  recordWatchlistSnapshot,
+  type ListLatestWatchlistSnapshotsOptions,
+  type SnapshotRowInput,
+} from "./snapshots.js";

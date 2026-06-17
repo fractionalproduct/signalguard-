@@ -19,11 +19,12 @@
     "build": "prisma generate && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"(lint configured in Milestone 2)\"",
-    "test": "echo \"(tests added in later milestones)\""
+    "test": "pnpm run build && node --test dist/snapshots.test.js"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",
-    "@signalguard/auth": "workspace:*"
+    "@signalguard/auth": "workspace:*",
+    "@signalguard/watchlist-analysis": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",
