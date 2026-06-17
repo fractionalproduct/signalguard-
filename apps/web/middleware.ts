@@ -28,6 +28,10 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Run on everything except static assets and the health check.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/health).*)"],
+  // Run on everything except static assets, the health check, and the cron
+  // endpoints (which authenticate via the CRON_SECRET Bearer header, not
+  // the session cookie).
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|api/health|api/cron/).*)",
+  ],
 };

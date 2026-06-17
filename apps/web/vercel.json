@@ -2,5 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm --filter \"@signalguard/web...\" build"
+  "buildCommand": "cd ../.. && pnpm --filter \"@signalguard/web...\" build",
+  "crons": [
+    {
+      "path": "/api/cron/watchlist-analysis",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }
