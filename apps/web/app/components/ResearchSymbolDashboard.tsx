@@ -2,8 +2,12 @@ import Link from "next/link";
 import type { ResearchSymbolState } from "../../lib/research-symbol";
 import type {
   ResearchSymbolDetailView,
+  SymbolChartSeries,
   SymbolHistoryRow,
 } from "../../lib/research-symbol-view";
+import { buildHistogram, buildSparkline } from "../../lib/sparkline-view";
+import { MacdHistogramBars } from "./charts/MacdHistogramBars";
+import { Sparkline } from "./charts/Sparkline";
 
 /**
  * Per-symbol M7 Research drill-down. Header card shows the latest snapshot's
@@ -73,6 +77,7 @@ function SymbolOk({ view }: { view: ResearchSymbolDetailView }) {
       <p className="eyebrow">Beginner view · read-only</p>
       <h1>{view.symbol}</h1>
       {view.latest ? <LatestSummary row={view.latest} /> : null}
+      <Charts series={view.series} />
       <h2 style={{ marginTop: 24 }}>History</h2>
       <HistoryTable rows={view.history} />
       <p className="muted" style={{ marginTop: 12 }}>
@@ -80,6 +85,38 @@ function SymbolOk({ view }: { view: ResearchSymbolDetailView }) {
         {view.history.length === 1 ? "" : "s"} (most recent first).
       </p>
     </section>
+  );
+}
+
+function Charts({ series }: { series: SymbolChartSeries }) {
+  // Close prices come in as integer cents; we leave them in cents for the
+  // chart — the sparkline auto-scales and the axis is implicit. RSI is
+  // bounded [0, 100] with 30/70 reference lines for oversold/overbought.
+  // MACD histogram is signed cents.
+  const closeLayout = buildSparkline(series.closeCents);
+  const rsiLayout = buildSparkline(series.rsi14, {
+    referenceValues: [
+      { value: 30, label: "30" },
+      { value: 70, label: "70" },
+    ],
+  });
+  const macdLayout = buildHistogram(series.macdHistogram);
+  return (
+    <div style={{ marginTop: 24 }}>
+      <h2>Charts</h2>
+      <h3 style={{ marginTop: 12 }}>Close</h3>
+      <Sparkline layout={closeLayout} ariaLabel="Close price sparkline" />
+      <h3 style={{ marginTop: 12 }}>RSI (14)</h3>
+      <Sparkline
+        layout={rsiLayout}
+        ariaLabel="RSI sparkline with 30 / 70 reference lines"
+      />
+      <h3 style={{ marginTop: 12 }}>MACD histogram</h3>
+      <MacdHistogramBars
+        layout={macdLayout}
+        ariaLabel="MACD histogram bar chart"
+      />
+    </div>
   );
 }
 
