@@ -17,6 +17,9 @@ importers:
       '@signalguard/agent-core':
         specifier: workspace:*
         version: link:../../packages/agent-core
+      '@signalguard/alpaca-market-data':
+        specifier: workspace:*
+        version: link:../../packages/alpaca-market-data
       '@signalguard/audit':
         specifier: workspace:*
         version: link:../../packages/audit
