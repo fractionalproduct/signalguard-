@@ -306,6 +306,9 @@ importers:
       '@signalguard/auth':
         specifier: workspace:*
         version: link:../auth
+      '@signalguard/watchlist-analysis':
+        specifier: workspace:*
+        version: link:../watchlist-analysis
     devDependencies:
       '@types/node':
         specifier: ^22.7.4
