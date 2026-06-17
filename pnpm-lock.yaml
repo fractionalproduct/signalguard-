@@ -94,6 +94,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@signalguard/alpaca-market-data':
+        specifier: workspace:*
+        version: link:../../packages/alpaca-market-data
       '@signalguard/audit':
         specifier: workspace:*
         version: link:../../packages/audit
@@ -109,6 +112,12 @@ importers:
       '@signalguard/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@signalguard/market-data':
+        specifier: workspace:*
+        version: link:../../packages/market-data
+      '@signalguard/watchlist-analysis':
+        specifier: workspace:*
+        version: link:../../packages/watchlist-analysis
       next:
         specifier: ^14.2.13
         version: 14.2.35(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
