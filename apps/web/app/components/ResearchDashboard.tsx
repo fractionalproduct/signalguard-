@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ResearchState } from "../../lib/research";
 import type {
   ResearchSymbolRow,
@@ -101,7 +102,12 @@ function SnapshotRow({ row }: { row: ResearchSymbolRow }) {
   return (
     <tr>
       <td>
-        <strong>{row.symbol}</strong>{" "}
+        <Link
+          href={`/research/${encodeURIComponent(row.symbol)}`}
+          aria-label={`Drill down on ${row.symbol}`}
+        >
+          <strong>{row.symbol}</strong>
+        </Link>{" "}
         <span className="muted">({row.barInterval})</span>
       </td>
       <td className={`regime-${row.trendClass}`}>{row.trend ?? "—"}</td>
