@@ -1,5 +1,6 @@
 import { createAlpacaMarketDataFromEnv } from "@signalguard/alpaca-market-data";
 import type { Logger } from "@signalguard/config";
+import { getDb, recordWatchlistSnapshot } from "@signalguard/database";
 import {
   InMemoryMarketData,
   type BarInterval,
@@ -39,8 +40,11 @@ export interface WatchlistAnalysisRunnerOptions {
  * and never blocks the health check. Same pattern as startIngestion /
  * startCongressIngestion in this worker.
  *
- * Snapshots currently log only; DB persistence will land in a separate
- * PR once a TechnicalAnalysisSnapshot schema is approved.
+ * Snapshots persist to the TechnicalAnalysisSnapshot table via
+ * recordWatchlistSnapshot. Per-symbol DB failures (table missing,
+ * connection drop, unique conflict) are caught by the cycle's per-symbol
+ * try/catch and reported in summary.errors; one bad symbol never aborts
+ * the rest of the cycle, and the next tick retries from scratch.
  */
 export function startWatchlistAnalysis(
   options: WatchlistAnalysisRunnerOptions,
@@ -83,17 +87,23 @@ export function startWatchlistAnalysis(
       });
     },
     async recordSnapshot(snapshot: WatchlistAnalysisSnapshot): Promise<void> {
-      // TODO(M7-persist): write to a TechnicalAnalysisSnapshot table once
-      // the schema PR lands. Until then, structured logging keeps the
-      // signal visible without committing a data-model decision early.
+      const { id } = await recordWatchlistSnapshot(
+        getDb(),
+        snapshot,
+        interval,
+      );
+      // Structured log so an operator can see per-symbol regime +
+      // detection flags streaming through the cycle without having to
+      // open the DB. Cheap; one line per symbol per cycle.
       options.logger.info(
         {
+          snapshotId: id,
           symbol: snapshot.symbol,
           barCount: snapshot.barCount,
           regime: snapshot.regime,
           manipulation: snapshot.manipulation,
         },
-        "watchlist analysis snapshot",
+        "watchlist analysis snapshot persisted",
       );
     },
   };
