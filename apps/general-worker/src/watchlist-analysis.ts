@@ -1,3 +1,4 @@
+import { createAlpacaMarketDataFromEnv } from "@signalguard/alpaca-market-data";
 import type { Logger } from "@signalguard/config";
 import {
   InMemoryMarketData,
@@ -21,10 +22,12 @@ export interface WatchlistAnalysisRunnerOptions {
   /** Bars to fetch per symbol; default 200. */
   lookbackBars?: number;
   /**
-   * Market-data client override. If absent, the runner falls back to an
-   * empty InMemoryMarketData so the worker boot path stays green before
-   * a licensed market-data adapter ships (AGENTS.md s15 — production
-   * adapters require a DataSourceConfiguration + licensing review).
+   * Market-data client override. If absent, the runner first tries to build
+   * an Alpaca market-data adapter from env (ALPACA_API_KEY_ID +
+   * ALPACA_API_SECRET_KEY — same creds as the paper broker) and falls back
+   * to an empty InMemoryMarketData if those aren't set. Both fallbacks
+   * keep the worker boot path green: the cycle's per-symbol error capture
+   * surfaces Alpaca failures rather than crashing the worker.
    */
   marketData?: MarketDataReadClient;
 }
@@ -44,7 +47,18 @@ export function startWatchlistAnalysis(
 ): { stop: () => void } {
   const interval: BarInterval = options.barInterval ?? "1d";
   const lookbackBars = options.lookbackBars ?? 200;
-  const marketData = options.marketData ?? new InMemoryMarketData({});
+  const alpaca = options.marketData ? null : createAlpacaMarketDataFromEnv();
+  const marketData =
+    options.marketData ?? alpaca ?? new InMemoryMarketData({});
+  const adapter: "injected" | "alpaca" | "in-memory" = options.marketData
+    ? "injected"
+    : alpaca
+      ? "alpaca"
+      : "in-memory";
+  options.logger.info(
+    { adapter, interval, lookbackBars },
+    "watchlist analysis runner configured",
+  );
 
   const ports: WatchlistAnalysisPorts = {
     async listSymbols(): Promise<readonly string[]> {
