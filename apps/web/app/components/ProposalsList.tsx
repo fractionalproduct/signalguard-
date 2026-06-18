@@ -1,11 +1,17 @@
 import Link from "next/link";
+import {
+  approveProposalAction,
+  rejectProposalAction,
+} from "../(dashboard)/proposals/actions";
 import type { ProposalsState } from "../../lib/proposals";
 import type { ProposalRow } from "../../lib/proposals-view";
 
 /**
- * Read-only list of recent trade proposals. Each row links to the
- * per-symbol drill-down. Approve / reject actions are intentionally
- * out of scope for this scaffold slice — surface first, interact later.
+ * List of recent trade proposals. Each row links to the per-symbol
+ * drill-down. Actionable rows (DRAFT / PENDING_APPROVAL, not past expiry)
+ * carry Approve / Reject buttons. Approval here only flips proposal status —
+ * no order ever reaches the broker without the separate M12 execution gate,
+ * and the broker is paper-only.
  */
 export function ProposalsList({ state }: { state: ProposalsState }) {
   if (state.status === "empty") return <EmptyCard />;
@@ -74,6 +80,7 @@ function ProposalsTable({ rows }: { rows: ReadonlyArray<ProposalRow> }) {
           <th>Sample</th>
           <th>Status</th>
           <th>Expires</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -117,9 +124,42 @@ function ProposalsTable({ rows }: { rows: ReadonlyArray<ProposalRow> }) {
                 row.expiresAtRelative
               )}
             </td>
+            <td>
+              <ProposalActions row={row} />
+            </td>
           </tr>
         ))}
       </tbody>
     </table>
+  );
+}
+
+function ProposalActions({ row }: { row: ProposalRow }) {
+  if (!row.actionable) {
+    return <span className="muted">—</span>;
+  }
+  return (
+    <div className="action-buttons">
+      <form action={approveProposalAction}>
+        <input type="hidden" name="proposalId" value={row.id} />
+        <button
+          type="submit"
+          className="btn-approve"
+          aria-label={`Approve ${row.symbol} proposal`}
+        >
+          Approve
+        </button>
+      </form>
+      <form action={rejectProposalAction}>
+        <input type="hidden" name="proposalId" value={row.id} />
+        <button
+          type="submit"
+          className="btn-reject"
+          aria-label={`Reject ${row.symbol} proposal`}
+        >
+          Reject
+        </button>
+      </form>
+    </div>
   );
 }

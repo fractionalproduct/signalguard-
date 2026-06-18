@@ -20,7 +20,8 @@ export interface BuildProposalInput {
    * all probability fields null, confidence INSUFFICIENT_DATA.
    */
   scanResult?: AnchorScanResult;
-  /** Soft TTL for the proposal. Default 24 hours. */
+  /** TTL for the proposal. Default 24 hours. Past this, the expiry sweep
+   * flips it to EXPIRED and approval is refused (hard gate in setProposalStatus). */
   ttlHours?: number;
   /** Injectable clock for tests. Default new Date(). */
   now?: Date;

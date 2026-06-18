@@ -45,6 +45,10 @@ export { acknowledgeAlert } from "./alerts-acknowledge.js";
 export {
   createProposal,
   listProposals,
-  updateProposalStatus,
+  setProposalStatus,
+  approveProposal,
+  rejectProposal,
+  expireProposals,
   type ListProposalsOptions,
+  type SetProposalStatusResult,
 } from "./proposals.js";

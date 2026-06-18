@@ -3,7 +3,13 @@ import type {
   TradeProposal,
   TradeProposalStatus,
 } from "@prisma/client";
-import type { ProposalDraft } from "@signalguard/proposals";
+import {
+  EXPIRY_ELIGIBLE_STATUSES,
+  canTransition,
+  isExpiryEligible,
+  type ProposalDraft,
+  type ProposalStatus,
+} from "@signalguard/proposals";
 
 /**
  * Insert a proposal draft into the DB. Returns the persisted row's id so
@@ -60,26 +66,103 @@ export async function listProposals(
   });
 }
 
+export type SetProposalStatusResult =
+  | { ok: true; from: ProposalStatus; to: ProposalStatus; symbol: string }
+  | {
+      ok: false;
+      reason: "not_found" | "illegal_transition" | "conflict" | "expired";
+      from?: ProposalStatus;
+    };
+
 /**
- * Update a proposal's status. Idempotent — setting the same status twice
- * is a no-op success. Returns a discriminated result so the caller can
- * render an explicit failure without try/catch.
+ * Transition a proposal to a new status, enforcing the lifecycle state
+ * machine (@signalguard/proposals). Unlike a blind update, this REFUSES
+ * illegal transitions — re-approving, un-rejecting, or resurrecting a
+ * terminal proposal all fail with `illegal_transition` instead of silently
+ * corrupting trading-safety state.
+ *
+ * Concurrency-safe: the write is a conditional `updateMany` gated on the
+ * status we validated against. If another request moved the row first, the
+ * update touches zero rows and we report `conflict` rather than clobbering.
+ *
+ * Approval is a HARD expiry gate: a past-TTL proposal cannot be approved even
+ * before the hourly sweep has flipped it to EXPIRED. This closes the window a
+ * stale page (or a direct POST) could otherwise use to approve against market
+ * conditions that no longer hold. Rejection of a stale proposal is still
+ * allowed — refusing an expired candidate is always safe.
+ *
+ * Returns a discriminated result so callers can branch without try/catch and
+ * record an accurate audit event (including the `from` status).
  */
-export async function updateProposalStatus(
+export async function setProposalStatus(
   db: PrismaClient,
   proposalId: string,
-  status: TradeProposalStatus,
-): Promise<{ ok: true } | { ok: false; reason: string }> {
-  try {
-    await db.tradeProposal.update({
-      where: { id: proposalId },
-      data: { status },
-    });
-    return { ok: true };
-  } catch (err) {
-    return {
-      ok: false,
-      reason: err instanceof Error ? err.message : String(err),
-    };
+  to: ProposalStatus,
+  now: Date = new Date(),
+): Promise<SetProposalStatusResult> {
+  const current = await db.tradeProposal.findUnique({
+    where: { id: proposalId },
+    select: { status: true, symbol: true, expiresAt: true },
+  });
+  if (!current) return { ok: false, reason: "not_found" };
+
+  const from = current.status as ProposalStatus;
+  if (!canTransition(from, to)) {
+    return { ok: false, reason: "illegal_transition", from };
   }
+
+  // Hard TTL gate on approval: a pre-decision proposal whose TTL has passed is
+  // not approvable, regardless of whether the sweep has run yet.
+  if (
+    to === "APPROVED" &&
+    isExpiryEligible(from) &&
+    current.expiresAt !== null &&
+    current.expiresAt.getTime() < now.getTime()
+  ) {
+    return { ok: false, reason: "expired", from };
+  }
+
+  const res = await db.tradeProposal.updateMany({
+    where: { id: proposalId, status: from as TradeProposalStatus },
+    data: { status: to as TradeProposalStatus },
+  });
+  if (res.count === 0) return { ok: false, reason: "conflict", from };
+
+  return { ok: true, from, to, symbol: current.symbol };
+}
+
+/** Owner approves a proposal (DRAFT | PENDING_APPROVAL -> APPROVED). */
+export function approveProposal(
+  db: PrismaClient,
+  proposalId: string,
+): Promise<SetProposalStatusResult> {
+  return setProposalStatus(db, proposalId, "APPROVED");
+}
+
+/** Owner rejects a proposal (DRAFT | PENDING_APPROVAL -> REJECTED). */
+export function rejectProposal(
+  db: PrismaClient,
+  proposalId: string,
+): Promise<SetProposalStatusResult> {
+  return setProposalStatus(db, proposalId, "REJECTED");
+}
+
+/**
+ * Automatic expiry sweep: flip every pre-decision proposal whose `expiresAt`
+ * has passed to EXPIRED in one statement. APPROVED/REJECTED proposals are
+ * left untouched — approval freezes the clock, and a terminal proposal can't
+ * expire. Returns how many rows were expired.
+ */
+export async function expireProposals(
+  db: PrismaClient,
+  now: Date = new Date(),
+): Promise<{ expired: number }> {
+  const res = await db.tradeProposal.updateMany({
+    where: {
+      status: { in: EXPIRY_ELIGIBLE_STATUSES as unknown as TradeProposalStatus[] },
+      expiresAt: { lt: now },
+    },
+    data: { status: "EXPIRED" },
+  });
+  return { expired: res.count };
 }

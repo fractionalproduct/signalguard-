@@ -100,3 +100,37 @@ test("relative timestamps", () => {
   const view = buildProposalsView([proposal()], NOW);
   assert.equal(view.rows[0]?.createdAtRelative, "5m ago");
 });
+
+test("DRAFT with future expiry is actionable", () => {
+  const view = buildProposalsView([proposal({ status: "DRAFT" })], NOW);
+  assert.equal(view.rows[0]?.actionable, true);
+});
+
+test("PENDING_APPROVAL is actionable", () => {
+  const view = buildProposalsView(
+    [proposal({ status: "PENDING_APPROVAL" })],
+    NOW,
+  );
+  assert.equal(view.rows[0]?.actionable, true);
+});
+
+test("terminal statuses are not actionable", () => {
+  for (const status of ["APPROVED", "REJECTED", "EXPIRED"] as const) {
+    const view = buildProposalsView([proposal({ status })], NOW);
+    assert.equal(view.rows[0]?.actionable, false, `${status} not actionable`);
+  }
+});
+
+test("past-expiry DRAFT not yet swept is NOT actionable", () => {
+  const view = buildProposalsView(
+    [
+      proposal({
+        status: "DRAFT",
+        expiresAt: new Date("2026-06-17T00:00:00.000Z"),
+      }),
+    ],
+    NOW,
+  );
+  assert.equal(view.rows[0]?.isExpired, true);
+  assert.equal(view.rows[0]?.actionable, false);
+});

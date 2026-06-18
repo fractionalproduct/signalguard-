@@ -541,3 +541,19 @@ h2 {
   cursor: pointer;
 }
 .ack-button:hover { background: rgba(255, 255, 255, 0.12); }
+
+/* --- Proposal approve / reject actions ------------------------------------ */
+.action-buttons { display: flex; gap: 6px; }
+.action-buttons form { margin: 0; padding: 0; }
+.btn-approve,
+.btn-reject {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(154, 163, 178, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-approve:hover { background: rgba(34, 197, 94, 0.18); border-color: rgba(34, 197, 94, 0.5); }
+.btn-reject:hover { background: rgba(239, 68, 68, 0.18); border-color: rgba(239, 68, 68, 0.5); }

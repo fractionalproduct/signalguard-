@@ -2,12 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { createAlpacaMarketDataFromEnv } from "@signalguard/alpaca-market-data";
+import { recordAuditEvent } from "@signalguard/audit";
 import {
+  approveProposal,
   createProposal,
   getDb,
   listLatestWatchlistSnapshots,
+  rejectProposal,
+  type SetProposalStatusResult,
 } from "@signalguard/database";
 import { generateProposalForSymbol } from "@signalguard/proposals";
+import { getCurrentOwner } from "../../../lib/session";
 
 /**
  * Server action: walk WATCHLIST_SYMBOLS, fetch Alpaca daily bars, run the
@@ -82,4 +87,59 @@ export async function generateProposalsAction(): Promise<void> {
   }
 
   revalidatePath("/proposals");
+}
+
+/**
+ * Shared core for the Approve / Reject form actions. Reads the proposalId
+ * hidden input, runs the guarded lifecycle transition, writes an audit event,
+ * and revalidates /proposals.
+ *
+ * No-ops on a missing proposalId so a malformed post never throws a 500.
+ * Illegal transitions and conflicts are not thrown either — the guard returns
+ * a discriminated failure that we record and surface via a re-render. The
+ * owner must be authenticated; an unauthenticated post throws (mirrors the
+ * other owner-scoped server actions).
+ */
+async function decideProposal(
+  formData: FormData,
+  decide: (
+    db: ReturnType<typeof getDb>,
+    proposalId: string,
+  ) => Promise<SetProposalStatusResult>,
+  auditType: "proposal.approved" | "proposal.rejected",
+): Promise<void> {
+  const proposalId = String(formData.get("proposalId") ?? "").trim();
+  if (!proposalId) return;
+
+  const owner = await getCurrentOwner();
+  if (!owner) throw new Error("Not authenticated.");
+
+  const result = await decide(getDb(), proposalId);
+
+  await recordAuditEvent({
+    type: auditType,
+    source: "web",
+    ownerId: owner.id,
+    metadata: result.ok
+      ? {
+          proposalId,
+          symbol: result.symbol,
+          from: result.from,
+          to: result.to,
+        }
+      : { proposalId, outcome: "rejected_transition", reason: result.reason },
+  });
+
+  revalidatePath("/proposals");
+}
+
+/** Form action: owner approves a proposal (paper-only; no order is submitted
+ * here — order submission is M12 and remains gated). */
+export async function approveProposalAction(formData: FormData): Promise<void> {
+  await decideProposal(formData, approveProposal, "proposal.approved");
+}
+
+/** Form action: owner rejects a proposal. */
+export async function rejectProposalAction(formData: FormData): Promise<void> {
+  await decideProposal(formData, rejectProposal, "proposal.rejected");
 }
