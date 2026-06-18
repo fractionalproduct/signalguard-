@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { AlertsState } from "../../lib/alerts";
 import type { AlertRow } from "../../lib/alerts-view";
+import { acknowledgeAlertAction } from "../(dashboard)/alerts/actions";
 
 /**
  * Read-only list of recent manipulation alerts. Each row links to the
@@ -93,9 +94,25 @@ function AlertsTable({ rows }: { rows: ReadonlyArray<AlertRow> }) {
               {row.acknowledged ? (
                 <span className="muted">Acknowledged</span>
               ) : (
-                <span className="status-pill" aria-label="New">
-                  New
-                </span>
+                <>
+                  <span
+                    className="status-pill"
+                    aria-label="New"
+                    style={{ marginRight: 6 }}
+                  >
+                    New
+                  </span>
+                  <form action={acknowledgeAlertAction} className="ack-form">
+                    <input type="hidden" name="alertId" value={row.id} />
+                    <button
+                      type="submit"
+                      className="ack-button"
+                      aria-label={`Acknowledge ${row.alertLabel} on ${row.symbol}`}
+                    >
+                      Acknowledge
+                    </button>
+                  </form>
+                </>
               )}
             </td>
           </tr>

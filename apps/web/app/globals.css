@@ -510,3 +510,34 @@ h2 {
 .add-source-note p:last-child { margin-bottom: 0; }
 .add-source-ok { text-align: left; border-color: rgba(90, 209, 154, 0.5); }
 .add-source-error { text-align: left; border-color: rgba(255, 138, 138, 0.5); }
+
+/* --- M7 Research regime + volatility + manipulation color cues ---------------
+   Class hints are emitted by lib/research-view.ts and lib/research-symbol-view.ts;
+   this block is the visual side of those classes. All colors picked to read on
+   the dark dashboard background. */
+.regime-bull   { color: rgba(90, 209, 154, 0.95);  font-weight: 600; }
+.regime-bear   { color: rgba(255, 138, 138, 0.95); font-weight: 600; }
+.regime-range  { color: rgba(255, 211, 138, 0.95); font-weight: 500; }
+.regime-flat   { color: rgba(154, 163, 178, 0.85); }
+
+.vol-high      { color: rgba(255, 168, 124, 0.95); font-weight: 600; }
+.vol-normal    { color: rgba(154, 163, 178, 0.85); }
+.vol-low       { color: rgba(124, 192, 255, 0.85); }
+.vol-flat      { color: rgba(154, 163, 178, 0.75); }
+
+.stat-value.positive { color: rgba(90, 209, 154, 0.95);  font-weight: 600; }
+.stat-value.negative { color: rgba(255, 138, 138, 0.95); font-weight: 600; }
+.stat-value.flat     { color: rgba(154, 163, 178, 0.85); }
+
+/* --- Alerts acknowledge button -------------------------------------------- */
+.ack-form { display: inline; margin: 0; padding: 0; }
+.ack-button {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(154, 163, 178, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ack-button:hover { background: rgba(255, 255, 255, 0.12); }

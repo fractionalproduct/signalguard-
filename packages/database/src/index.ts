@@ -39,3 +39,4 @@ export {
   type ListRecentAlertsOptions,
   type ManipulationAlertInput,
 } from "./manipulation-alerts.js";
+export { acknowledgeAlert } from "./alerts-acknowledge.js";
