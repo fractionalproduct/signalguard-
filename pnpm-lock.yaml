@@ -106,6 +106,9 @@ importers:
       '@signalguard/market-data':
         specifier: workspace:*
         version: link:../../packages/market-data
+      '@signalguard/proposals':
+        specifier: workspace:*
+        version: link:../../packages/proposals
       '@signalguard/watchlist-analysis':
         specifier: workspace:*
         version: link:../../packages/watchlist-analysis
@@ -453,6 +456,9 @@ importers:
 
   packages/proposals:
     dependencies:
+      '@signalguard/market-data':
+        specifier: workspace:*
+        version: link:../market-data
       '@signalguard/probability':
         specifier: workspace:*
         version: link:../probability
