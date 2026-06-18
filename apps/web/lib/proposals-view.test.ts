@@ -132,12 +132,35 @@ test("APPROVED with quantity > 1 is reducible; quantity surfaced", () => {
   assert.equal(view.rows[0]?.actionable, false);
 });
 
-test("APPROVED with quantity 1 is not reducible (can't go below 1)", () => {
+test("APPROVED with quantity 1 is not reducible (can't go below 1) but is withdrawable", () => {
   const view = buildProposalsView(
     [proposal({ status: "APPROVED", quantity: 1 })],
     NOW,
   );
   assert.equal(view.rows[0]?.reducible, false);
+  assert.equal(view.rows[0]?.withdrawable, true);
+});
+
+test("withdrawable only on APPROVED, never on pre-decision or terminal", () => {
+  for (const status of ["DRAFT", "PENDING_APPROVAL"] as const) {
+    assert.equal(
+      buildProposalsView([proposal({ status })], NOW).rows[0]?.withdrawable,
+      false,
+      `${status} should not be withdrawable`,
+    );
+  }
+  for (const status of ["REJECTED", "EXPIRED", "CANCELED"] as const) {
+    assert.equal(
+      buildProposalsView([proposal({ status })], NOW).rows[0]?.withdrawable,
+      false,
+      `${status} should not be withdrawable`,
+    );
+  }
+  assert.equal(
+    buildProposalsView([proposal({ status: "APPROVED", quantity: 5 })], NOW)
+      .rows[0]?.withdrawable,
+    true,
+  );
 });
 
 test("DRAFT (unsized) is not reducible and has null quantity", () => {

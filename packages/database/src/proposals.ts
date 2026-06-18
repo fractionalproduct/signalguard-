@@ -267,6 +267,19 @@ export function rejectProposal(
 }
 
 /**
+ * Owner withdraws a proposal (DRAFT | PENDING_APPROVAL | APPROVED -> CANCELED).
+ * The guard refuses withdrawal of an already-terminal proposal. NOTE: once M12
+ * exists, withdrawing an APPROVED proposal must be checked against live order
+ * state there — this status transition alone does not unwind a submitted order.
+ */
+export function cancelProposal(
+  db: PrismaClient,
+  proposalId: string,
+): Promise<SetProposalStatusResult> {
+  return setProposalStatus(db, proposalId, "CANCELED");
+}
+
+/**
  * Automatic expiry sweep: flip every pre-decision proposal whose `expiresAt`
  * has passed to EXPIRED in one statement. APPROVED/REJECTED proposals are
  * left untouched — approval freezes the clock, and a terminal proposal can't

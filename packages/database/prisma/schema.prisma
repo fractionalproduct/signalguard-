@@ -343,6 +343,7 @@ enum TradeProposalStatus {
   APPROVED
   REJECTED
   EXPIRED
+  CANCELED
 }
 
 model TradeProposal {

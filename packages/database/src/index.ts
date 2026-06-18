@@ -50,6 +50,7 @@ export {
   setProposalRiskProfile,
   approveProposal,
   rejectProposal,
+  cancelProposal,
   reduceProposalQuantity,
   expireProposals,
   type ListProposalsOptions,

@@ -9,6 +9,7 @@ export {
   EXPIRY_ELIGIBLE_STATUSES,
   canTransition,
   isActionable,
+  isCancelable,
   isExpiryEligible,
   isTerminal,
   type ProposalStatus,

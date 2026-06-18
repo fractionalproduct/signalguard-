@@ -39,6 +39,10 @@ export interface ProposalRow {
   quantity: number | null;
   /** True when the owner may reduce the quantity (APPROVED with qty > 1). */
   reducible: boolean;
+  /** True when the UI offers withdrawal — scoped to APPROVED rows. The
+   * lifecycle allows cancelling pre-decision states too, but those use
+   * Reject in the UI; withdrawal is the "pull back an approved idea" path. */
+  withdrawable: boolean;
 }
 
 export interface ProposalsView {
@@ -82,6 +86,7 @@ function buildRow(p: TradeProposal, nowMs: number): ProposalRow {
     actionable: isActionable(p.status as ProposalStatus) && !isExpired,
     quantity: p.quantity,
     reducible: p.status === "APPROVED" && (p.quantity ?? 0) > 1,
+    withdrawable: p.status === "APPROVED",
   };
 }
 

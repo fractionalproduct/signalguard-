@@ -5,6 +5,7 @@ import { createAlpacaMarketDataFromEnv } from "@signalguard/alpaca-market-data";
 import { recordAuditEvent } from "@signalguard/audit";
 import {
   approveProposal,
+  cancelProposal,
   createProposal,
   getDb,
   getProposalById,
@@ -200,6 +201,28 @@ export async function rejectProposalAction(formData: FormData): Promise<void> {
   const result = await rejectProposal(getDb(), ctx.proposalId);
   await recordAuditEvent({
     type: "proposal.rejected",
+    source: "web",
+    ownerId: ctx.ownerId,
+    metadata: result.ok
+      ? { proposalId: ctx.proposalId, symbol: result.symbol, from: result.from, to: result.to }
+      : { proposalId: ctx.proposalId, outcome: "refused", reason: result.reason },
+  });
+  revalidatePath("/proposals");
+}
+
+/**
+ * Form action: owner withdraws a proposal (-> CANCELED). The DB guard refuses
+ * withdrawal of an already-terminal proposal. M11 submits no orders, so this is
+ * safe; once M12 exists it must additionally check live order state before
+ * honoring a withdrawal of an APPROVED proposal.
+ */
+export async function cancelProposalAction(formData: FormData): Promise<void> {
+  const ctx = await requireOwnerAndProposalId(formData);
+  if (!ctx) return;
+
+  const result = await cancelProposal(getDb(), ctx.proposalId);
+  await recordAuditEvent({
+    type: "proposal.canceled",
     source: "web",
     ownerId: ctx.ownerId,
     metadata: result.ok

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SELECTABLE_RISK_PROFILES } from "@signalguard/proposals";
 import {
   approveProposalAction,
+  cancelProposalAction,
   reduceProposalAction,
   rejectProposalAction,
   setRiskProfileAction,
@@ -200,31 +201,48 @@ function ProposalActions({ row }: { row: ProposalRow }) {
     );
   }
 
-  // APPROVED proposals can have their order quantity reduced (never increased).
-  if (row.reducible && row.quantity !== null) {
+  // APPROVED proposals can have their order quantity reduced (never increased)
+  // and can be withdrawn entirely (-> CANCELED).
+  if (row.reducible || row.withdrawable) {
     return (
-      <form action={reduceProposalAction} className="reduce-form">
-        <input type="hidden" name="proposalId" value={row.id} />
-        <label className="muted" htmlFor={`qty-${row.id}`}>
-          Reduce to
-        </label>
-        <input
-          id={`qty-${row.id}`}
-          type="number"
-          name="quantity"
-          min={1}
-          max={row.quantity - 1}
-          defaultValue={row.quantity - 1}
-          aria-label={`New quantity for ${row.symbol}, max ${row.quantity - 1}`}
-        />
-        <button
-          type="submit"
-          className="btn-reject"
-          aria-label={`Reduce ${row.symbol} quantity`}
-        >
-          Reduce
-        </button>
-      </form>
+      <div className="action-buttons">
+        {row.reducible && row.quantity !== null && (
+          <form action={reduceProposalAction} className="reduce-form">
+            <input type="hidden" name="proposalId" value={row.id} />
+            <label className="muted" htmlFor={`qty-${row.id}`}>
+              Reduce to
+            </label>
+            <input
+              id={`qty-${row.id}`}
+              type="number"
+              name="quantity"
+              min={1}
+              max={row.quantity - 1}
+              defaultValue={row.quantity - 1}
+              aria-label={`New quantity for ${row.symbol}, max ${row.quantity - 1}`}
+            />
+            <button
+              type="submit"
+              className="ack-button"
+              aria-label={`Reduce ${row.symbol} quantity`}
+            >
+              Reduce
+            </button>
+          </form>
+        )}
+        {row.withdrawable && (
+          <form action={cancelProposalAction}>
+            <input type="hidden" name="proposalId" value={row.id} />
+            <button
+              type="submit"
+              className="btn-reject"
+              aria-label={`Withdraw ${row.symbol} proposal`}
+            >
+              Withdraw
+            </button>
+          </form>
+        )}
+      </div>
     );
   }
 
