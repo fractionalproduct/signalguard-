@@ -106,6 +106,9 @@ importers:
       '@signalguard/market-data':
         specifier: workspace:*
         version: link:../../packages/market-data
+      '@signalguard/position-sizing':
+        specifier: workspace:*
+        version: link:../../packages/position-sizing
       '@signalguard/proposals':
         specifier: workspace:*
         version: link:../../packages/proposals
@@ -456,9 +459,15 @@ importers:
 
   packages/proposals:
     dependencies:
+      '@signalguard/domain':
+        specifier: workspace:*
+        version: link:../domain
       '@signalguard/market-data':
         specifier: workspace:*
         version: link:../market-data
+      '@signalguard/position-sizing':
+        specifier: workspace:*
+        version: link:../position-sizing
       '@signalguard/probability':
         specifier: workspace:*
         version: link:../probability

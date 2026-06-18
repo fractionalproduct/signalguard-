@@ -541,3 +541,67 @@ h2 {
   cursor: pointer;
 }
 .ack-button:hover { background: rgba(255, 255, 255, 0.12); }
+
+/* --- Proposal approve / reject actions ------------------------------------ */
+.action-buttons { display: flex; gap: 6px; }
+.action-buttons form { margin: 0; padding: 0; }
+.btn-approve,
+.btn-reject {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(154, 163, 178, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-approve:hover { background: rgba(34, 197, 94, 0.18); border-color: rgba(34, 197, 94, 0.5); }
+.btn-reject:hover { background: rgba(239, 68, 68, 0.18); border-color: rgba(239, 68, 68, 0.5); }
+.reduce-form { display: flex; align-items: center; gap: 6px; margin: 0; }
+.reduce-form label { font-size: 11px; white-space: nowrap; }
+.reduce-form input[type="number"] {
+  width: 60px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(154, 163, 178, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font-size: 12px;
+}
+.profile-form { display: flex; align-items: center; gap: 6px; margin: 0; }
+.profile-form select {
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(154, 163, 178, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font-size: 12px;
+}
+
+/* --- Proposal detail page ------------------------------------------------- */
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.detail-field dt { font-size: 12px; margin-bottom: 2px; }
+.detail-field dd { margin: 0; font-size: 15px; }
+.activity-list { list-style: none; padding: 0; margin: 8px 0 0; }
+.activity-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(154, 163, 178, 0.15);
+  font-size: 13px;
+}
+.notes-form { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; max-width: 520px; }
+.notes-form textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(154, 163, 178, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}

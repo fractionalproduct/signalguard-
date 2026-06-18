@@ -8,6 +8,7 @@
  * instead.
  */
 import type { TradeProposal } from "@signalguard/database";
+import { isActionable, type ProposalStatus } from "@signalguard/proposals";
 import { formatUsd } from "./money";
 import { relativeTime } from "./research-view";
 
@@ -31,6 +32,17 @@ export interface ProposalRow {
   expiresAtRelative: string | null;
   expiresAt: string | null;
   isExpired: boolean;
+  /** True when the owner may still approve/reject — drives the action buttons.
+   * A past-expiry row that the sweep hasn't flipped yet is NOT actionable. */
+  actionable: boolean;
+  /** Approval-time sized share count, or null before approval. */
+  quantity: number | null;
+  /** True when the owner may reduce the quantity (APPROVED with qty > 1). */
+  reducible: boolean;
+  /** True when the UI offers withdrawal — scoped to APPROVED rows. The
+   * lifecycle allows cancelling pre-decision states too, but those use
+   * Reject in the UI; withdrawal is the "pull back an approved idea" path. */
+  withdrawable: boolean;
 }
 
 export interface ProposalsView {
@@ -61,7 +73,7 @@ function buildRow(p: TradeProposal, nowMs: number): ProposalRow {
     stop: formatUsd(p.stopCents),
     target: formatUsd(p.targetCents),
     horizonBars: p.horizonBars,
-    probabilityLabel: formatProbability(p),
+    probabilityLabel: formatProposalProbability(p),
     confidence: p.confidence,
     sampleSize: p.sampleSize,
     createdAtRelative: relativeTime(p.createdAt.getTime(), nowMs),
@@ -71,10 +83,20 @@ function buildRow(p: TradeProposal, nowMs: number): ProposalRow {
       : null,
     expiresAt: expiresAt ? expiresAt.toISOString() : null,
     isExpired,
+    actionable: isActionable(p.status as ProposalStatus) && !isExpired,
+    quantity: p.quantity,
+    reducible: p.status === "APPROVED" && (p.quantity ?? 0) > 1,
+    withdrawable: p.status === "APPROVED",
   };
 }
 
-function formatProbability(p: TradeProposal): string {
+/**
+ * Format a proposal's P(target before stop) for display. SAFETY-CRITICAL: never
+ * renders a precise number when confidence is below the floor (AGENTS.md §12) —
+ * the qualitative "Insufficient data" shows instead. Shared by the list and the
+ * detail page so the gating rule lives in exactly one place.
+ */
+export function formatProposalProbability(p: TradeProposal): string {
   if (
     p.confidence !== "OK" ||
     p.pTargetFirstPoint === null ||

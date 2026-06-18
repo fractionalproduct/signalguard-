@@ -54,3 +54,6 @@ logs/
 
 # web test build output
 apps/web/dist-test/
+
+# Vercel CLI project link
+.vercel

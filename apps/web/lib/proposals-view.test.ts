@@ -23,6 +23,7 @@ function proposal(
     pTargetFirstUpper: 0.69,
     confidence: "OK",
     status: "DRAFT",
+    quantity: null,
     notes: null,
     expiresAt: new Date("2026-06-19T12:00:00.000Z"),
     createdAt: new Date("2026-06-18T11:55:00.000Z"),
@@ -99,4 +100,85 @@ test("null expiresAt -> isExpired false, expiresAt fields null", () => {
 test("relative timestamps", () => {
   const view = buildProposalsView([proposal()], NOW);
   assert.equal(view.rows[0]?.createdAtRelative, "5m ago");
+});
+
+test("DRAFT with future expiry is actionable", () => {
+  const view = buildProposalsView([proposal({ status: "DRAFT" })], NOW);
+  assert.equal(view.rows[0]?.actionable, true);
+});
+
+test("PENDING_APPROVAL is actionable", () => {
+  const view = buildProposalsView(
+    [proposal({ status: "PENDING_APPROVAL" })],
+    NOW,
+  );
+  assert.equal(view.rows[0]?.actionable, true);
+});
+
+test("terminal statuses are not actionable", () => {
+  for (const status of ["APPROVED", "REJECTED", "EXPIRED"] as const) {
+    const view = buildProposalsView([proposal({ status })], NOW);
+    assert.equal(view.rows[0]?.actionable, false, `${status} not actionable`);
+  }
+});
+
+test("APPROVED with quantity > 1 is reducible; quantity surfaced", () => {
+  const view = buildProposalsView(
+    [proposal({ status: "APPROVED", quantity: 10 })],
+    NOW,
+  );
+  assert.equal(view.rows[0]?.quantity, 10);
+  assert.equal(view.rows[0]?.reducible, true);
+  assert.equal(view.rows[0]?.actionable, false);
+});
+
+test("APPROVED with quantity 1 is not reducible (can't go below 1) but is withdrawable", () => {
+  const view = buildProposalsView(
+    [proposal({ status: "APPROVED", quantity: 1 })],
+    NOW,
+  );
+  assert.equal(view.rows[0]?.reducible, false);
+  assert.equal(view.rows[0]?.withdrawable, true);
+});
+
+test("withdrawable only on APPROVED, never on pre-decision or terminal", () => {
+  for (const status of ["DRAFT", "PENDING_APPROVAL"] as const) {
+    assert.equal(
+      buildProposalsView([proposal({ status })], NOW).rows[0]?.withdrawable,
+      false,
+      `${status} should not be withdrawable`,
+    );
+  }
+  for (const status of ["REJECTED", "EXPIRED", "CANCELED"] as const) {
+    assert.equal(
+      buildProposalsView([proposal({ status })], NOW).rows[0]?.withdrawable,
+      false,
+      `${status} should not be withdrawable`,
+    );
+  }
+  assert.equal(
+    buildProposalsView([proposal({ status: "APPROVED", quantity: 5 })], NOW)
+      .rows[0]?.withdrawable,
+    true,
+  );
+});
+
+test("DRAFT (unsized) is not reducible and has null quantity", () => {
+  const view = buildProposalsView([proposal({ status: "DRAFT" })], NOW);
+  assert.equal(view.rows[0]?.quantity, null);
+  assert.equal(view.rows[0]?.reducible, false);
+});
+
+test("past-expiry DRAFT not yet swept is NOT actionable", () => {
+  const view = buildProposalsView(
+    [
+      proposal({
+        status: "DRAFT",
+        expiresAt: new Date("2026-06-17T00:00:00.000Z"),
+      }),
+    ],
+    NOW,
+  );
+  assert.equal(view.rows[0]?.isExpired, true);
+  assert.equal(view.rows[0]?.actionable, false);
 });
