@@ -44,12 +44,23 @@ export interface SymbolHistoryRow {
   flags: ReadonlyArray<SymbolHistoryFlag>;
 }
 
+export interface SymbolChartSeries {
+  /** Latest-bar close in cents, oldest-first. null where missing. */
+  closeCents: ReadonlyArray<number | null>;
+  /** RSI(14) 0-100, oldest-first. null on warmup. */
+  rsi14: ReadonlyArray<number | null>;
+  /** MACD histogram (cents, signed), oldest-first. null on warmup. */
+  macdHistogram: ReadonlyArray<number | null>;
+}
+
 export interface ResearchSymbolDetailView {
   symbol: string;
   /** First row of history (most recent), or null when empty. */
   latest: SymbolHistoryRow | null;
   /** Full history series, most-recent first. */
   history: ReadonlyArray<SymbolHistoryRow>;
+  /** Numeric series for inline charts, oldest-first (chart-ready order). */
+  series: SymbolChartSeries;
   /** Raw input row count for the footer. */
   totalSnapshots: number;
 }
@@ -60,10 +71,19 @@ export function buildResearchSymbolDetailView(
   now: Date = new Date(),
 ): ResearchSymbolDetailView {
   const history = snapshots.map((s) => buildHistoryRow(s, now));
+  // Chart series are oldest-first so the line/bars render left-to-right
+  // chronologically; snapshots come in DESC from listLatestWatchlistSnapshots.
+  const chronological = [...snapshots].reverse();
+  const series: SymbolChartSeries = {
+    closeCents: chronological.map((s) => s.latestBarCloseCents),
+    rsi14: chronological.map((s) => s.rsi14),
+    macdHistogram: chronological.map((s) => s.macdHistogram),
+  };
   return {
     symbol: symbol.toUpperCase(),
     latest: history[0] ?? null,
     history,
+    series,
     totalSnapshots: snapshots.length,
   };
 }

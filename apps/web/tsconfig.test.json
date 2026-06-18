@@ -29,6 +29,8 @@
     "lib/cron-auth.test.ts",
     "lib/research-view.ts",
     "lib/research-symbol-view.ts",
-    "lib/research-symbol-view.test.ts"
+    "lib/research-symbol-view.test.ts",
+    "lib/sparkline-view.ts",
+    "lib/sparkline-view.test.ts"
   ]
 }
