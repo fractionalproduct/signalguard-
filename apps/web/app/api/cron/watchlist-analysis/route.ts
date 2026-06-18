@@ -19,6 +19,7 @@ import {
   type WatchlistAnalysisSnapshot,
 } from "@signalguard/watchlist-analysis";
 import { isAuthorizedCronRequest } from "../../../../lib/cron-auth";
+import { sendAlertEmail } from "../../../../lib/email";
 
 /**
  * Vercel-Cron-driven watchlist analysis cycle.
@@ -47,6 +48,20 @@ export const dynamic = "force-dynamic";
 // Sane upper bound for one cycle; Vercel's default is 300s. Most cycles
 // finish in under 10s with a few-symbol watchlist + 200-bar lookback.
 export const maxDuration = 300;
+
+/** Friendly label per alert type; mirrors the /alerts page labels. */
+function friendlyLabel(alertType: string): string {
+  switch (alertType) {
+    case "UNUSUAL_VOLUME":
+      return "Unusual volume";
+    case "PUMP_AND_DUMP":
+      return "Pump-and-dump pattern";
+    case "GAP_AND_FADE":
+      return "Gap-and-fade reversal";
+    default:
+      return alertType;
+  }
+}
 
 export async function GET(req: Request): Promise<Response> {
   if (
@@ -143,6 +158,24 @@ export async function GET(req: Request): Promise<Response> {
       if (alerts.length > 0) {
         try {
           await recordManipulationAlerts(db, alerts);
+          // Fire one email per alert. Each send is independently captured —
+          // a Resend transport failure or a missing-config skip never
+          // blocks the next alert, never blocks the snapshot write, and
+          // never bubbles up to fail the symbol in the cycle summary.
+          for (const alert of alerts) {
+            const result = await sendAlertEmail({
+              symbol: alert.symbol,
+              alertType: alert.alertType,
+              alertLabel: friendlyLabel(alert.alertType),
+              triggeredAt: alert.triggeredAt,
+            });
+            if (!result.sent) {
+              console.info(
+                "[cron/watchlist-analysis] alert email not sent:",
+                result.reason,
+              );
+            }
+          }
         } catch (err) {
           // Alert insert failing should not block snapshot persistence. The
           // cycle's per-symbol error capture would otherwise count the whole
