@@ -17,9 +17,6 @@ importers:
       '@signalguard/agent-core':
         specifier: workspace:*
         version: link:../../packages/agent-core
-      '@signalguard/alpaca-market-data':
-        specifier: workspace:*
-        version: link:../../packages/alpaca-market-data
       '@signalguard/audit':
         specifier: workspace:*
         version: link:../../packages/audit
@@ -47,18 +44,12 @@ importers:
       '@signalguard/ingestion':
         specifier: workspace:*
         version: link:../../packages/ingestion
-      '@signalguard/market-data':
-        specifier: workspace:*
-        version: link:../../packages/market-data
       '@signalguard/signal-agent':
         specifier: workspace:*
         version: link:../../packages/signal-agent
       '@signalguard/source-connectors':
         specifier: workspace:*
         version: link:../../packages/source-connectors
-      '@signalguard/watchlist-analysis':
-        specifier: workspace:*
-        version: link:../../packages/watchlist-analysis
     devDependencies:
       '@types/node':
         specifier: ^22.7.4
