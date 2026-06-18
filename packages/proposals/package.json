@@ -18,7 +18,9 @@
     "test": "pnpm run build && node --test dist/*.test.js"
   },
   "dependencies": {
+    "@signalguard/domain": "workspace:*",
     "@signalguard/market-data": "workspace:*",
+    "@signalguard/position-sizing": "workspace:*",
     "@signalguard/probability": "workspace:*"
   },
   "devDependencies": {

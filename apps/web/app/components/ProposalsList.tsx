@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   approveProposalAction,
+  reduceProposalAction,
   rejectProposalAction,
 } from "../(dashboard)/proposals/actions";
 import type { ProposalsState } from "../../lib/proposals";
@@ -79,6 +80,7 @@ function ProposalsTable({ rows }: { rows: ReadonlyArray<ProposalRow> }) {
           <th>P(target before stop)</th>
           <th>Sample</th>
           <th>Status</th>
+          <th>Qty</th>
           <th>Expires</th>
           <th>Actions</th>
         </tr>
@@ -115,6 +117,13 @@ function ProposalsTable({ rows }: { rows: ReadonlyArray<ProposalRow> }) {
                 {row.status}
               </span>
             </td>
+            <td>
+              {row.quantity === null ? (
+                <span className="muted">—</span>
+              ) : (
+                <span className="stat-value">{row.quantity}</span>
+              )}
+            </td>
             <td title={row.expiresAt ?? ""}>
               {row.expiresAt === null ? (
                 <span className="muted">—</span>
@@ -135,31 +144,60 @@ function ProposalsTable({ rows }: { rows: ReadonlyArray<ProposalRow> }) {
 }
 
 function ProposalActions({ row }: { row: ProposalRow }) {
-  if (!row.actionable) {
-    return <span className="muted">—</span>;
+  if (row.actionable) {
+    return (
+      <div className="action-buttons">
+        <form action={approveProposalAction}>
+          <input type="hidden" name="proposalId" value={row.id} />
+          <button
+            type="submit"
+            className="btn-approve"
+            aria-label={`Approve ${row.symbol} proposal`}
+          >
+            Approve
+          </button>
+        </form>
+        <form action={rejectProposalAction}>
+          <input type="hidden" name="proposalId" value={row.id} />
+          <button
+            type="submit"
+            className="btn-reject"
+            aria-label={`Reject ${row.symbol} proposal`}
+          >
+            Reject
+          </button>
+        </form>
+      </div>
+    );
   }
-  return (
-    <div className="action-buttons">
-      <form action={approveProposalAction}>
+
+  // APPROVED proposals can have their order quantity reduced (never increased).
+  if (row.reducible && row.quantity !== null) {
+    return (
+      <form action={reduceProposalAction} className="reduce-form">
         <input type="hidden" name="proposalId" value={row.id} />
-        <button
-          type="submit"
-          className="btn-approve"
-          aria-label={`Approve ${row.symbol} proposal`}
-        >
-          Approve
-        </button>
-      </form>
-      <form action={rejectProposalAction}>
-        <input type="hidden" name="proposalId" value={row.id} />
+        <label className="muted" htmlFor={`qty-${row.id}`}>
+          Reduce to
+        </label>
+        <input
+          id={`qty-${row.id}`}
+          type="number"
+          name="quantity"
+          min={1}
+          max={row.quantity - 1}
+          defaultValue={row.quantity - 1}
+          aria-label={`New quantity for ${row.symbol}, max ${row.quantity - 1}`}
+        />
         <button
           type="submit"
           className="btn-reject"
-          aria-label={`Reject ${row.symbol} proposal`}
+          aria-label={`Reduce ${row.symbol} quantity`}
         >
-          Reject
+          Reduce
         </button>
       </form>
-    </div>
-  );
+    );
+  }
+
+  return <span className="muted">—</span>;
 }

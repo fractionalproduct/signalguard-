@@ -13,3 +13,10 @@ export {
   isTerminal,
   type ProposalStatus,
 } from "./lifecycle.js";
+export {
+  currentInvestedCentsFromLongPositions,
+  resolveSizingLimits,
+  validateReduction,
+  type PositionForSizing,
+  type ReductionCheck,
+} from "./sizing.js";

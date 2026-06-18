@@ -557,3 +557,14 @@ h2 {
 }
 .btn-approve:hover { background: rgba(34, 197, 94, 0.18); border-color: rgba(34, 197, 94, 0.5); }
 .btn-reject:hover { background: rgba(239, 68, 68, 0.18); border-color: rgba(239, 68, 68, 0.5); }
+.reduce-form { display: flex; align-items: center; gap: 6px; margin: 0; }
+.reduce-form label { font-size: 11px; white-space: nowrap; }
+.reduce-form input[type="number"] {
+  width: 60px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(154, 163, 178, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font-size: 12px;
+}

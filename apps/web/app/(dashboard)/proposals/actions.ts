@@ -7,11 +7,13 @@ import {
   approveProposal,
   createProposal,
   getDb,
+  getProposalById,
   listLatestWatchlistSnapshots,
+  reduceProposalQuantity,
   rejectProposal,
-  type SetProposalStatusResult,
 } from "@signalguard/database";
 import { generateProposalForSymbol } from "@signalguard/proposals";
+import { sizeProposalForApproval } from "../../../lib/proposal-sizing";
 import { getCurrentOwner } from "../../../lib/session";
 
 /**
@@ -89,57 +91,128 @@ export async function generateProposalsAction(): Promise<void> {
   revalidatePath("/proposals");
 }
 
-/**
- * Shared core for the Approve / Reject form actions. Reads the proposalId
- * hidden input, runs the guarded lifecycle transition, writes an audit event,
- * and revalidates /proposals.
- *
- * No-ops on a missing proposalId so a malformed post never throws a 500.
- * Illegal transitions and conflicts are not thrown either — the guard returns
- * a discriminated failure that we record and surface via a re-render. The
- * owner must be authenticated; an unauthenticated post throws (mirrors the
- * other owner-scoped server actions).
- */
-async function decideProposal(
+/** Read + validate the authenticated owner and the posted proposalId. Returns
+ * null when the post is malformed (missing id) so callers no-op instead of
+ * throwing a 500; throws only when unauthenticated (mirrors other owner-scoped
+ * actions). */
+async function requireOwnerAndProposalId(
   formData: FormData,
-  decide: (
-    db: ReturnType<typeof getDb>,
-    proposalId: string,
-  ) => Promise<SetProposalStatusResult>,
-  auditType: "proposal.approved" | "proposal.rejected",
-): Promise<void> {
+): Promise<{ ownerId: string; proposalId: string } | null> {
   const proposalId = String(formData.get("proposalId") ?? "").trim();
-  if (!proposalId) return;
-
+  if (!proposalId) return null;
   const owner = await getCurrentOwner();
   if (!owner) throw new Error("Not authenticated.");
+  return { ownerId: owner.id, proposalId };
+}
 
-  const result = await decide(getDb(), proposalId);
+/**
+ * Form action: owner approves a proposal. Approval deterministically sizes the
+ * position against live paper-account state and records the quantity as an
+ * approval-time ceiling — it does NOT submit an order (M12 remains gated and
+ * re-sizes/re-checks before any submission). A sizing failure (no broker,
+ * unknown profile, nothing fits the limits) records a refusal and leaves the
+ * proposal unchanged.
+ */
+export async function approveProposalAction(formData: FormData): Promise<void> {
+  const ctx = await requireOwnerAndProposalId(formData);
+  if (!ctx) return;
+  const db = getDb();
 
+  const proposal = await getProposalById(db, ctx.proposalId);
+  if (!proposal) {
+    await recordAuditEvent({
+      type: "proposal.approved",
+      source: "web",
+      ownerId: ctx.ownerId,
+      metadata: { proposalId: ctx.proposalId, outcome: "refused", reason: "not_found" },
+    });
+    revalidatePath("/proposals");
+    return;
+  }
+
+  const sizing = await sizeProposalForApproval(proposal);
+  if (!sizing.ok) {
+    await recordAuditEvent({
+      type: "proposal.approved",
+      source: "web",
+      ownerId: ctx.ownerId,
+      metadata: {
+        proposalId: ctx.proposalId,
+        symbol: proposal.symbol,
+        outcome: "refused",
+        reason: sizing.reason,
+        detail: sizing.detail,
+      },
+    });
+    revalidatePath("/proposals");
+    return;
+  }
+
+  const result = await approveProposal(db, ctx.proposalId, sizing.result.quantity);
   await recordAuditEvent({
-    type: auditType,
+    type: "proposal.approved",
     source: "web",
-    ownerId: owner.id,
+    ownerId: ctx.ownerId,
     metadata: result.ok
       ? {
-          proposalId,
+          proposalId: ctx.proposalId,
           symbol: result.symbol,
           from: result.from,
           to: result.to,
+          quantity: sizing.result.quantity,
+          limitingFactor: sizing.result.limitingFactor,
         }
-      : { proposalId, outcome: "rejected_transition", reason: result.reason },
+      : { proposalId: ctx.proposalId, outcome: "refused", reason: result.reason },
   });
-
   revalidatePath("/proposals");
-}
-
-/** Form action: owner approves a proposal (paper-only; no order is submitted
- * here — order submission is M12 and remains gated). */
-export async function approveProposalAction(formData: FormData): Promise<void> {
-  await decideProposal(formData, approveProposal, "proposal.approved");
 }
 
 /** Form action: owner rejects a proposal. */
 export async function rejectProposalAction(formData: FormData): Promise<void> {
-  await decideProposal(formData, rejectProposal, "proposal.rejected");
+  const ctx = await requireOwnerAndProposalId(formData);
+  if (!ctx) return;
+
+  const result = await rejectProposal(getDb(), ctx.proposalId);
+  await recordAuditEvent({
+    type: "proposal.rejected",
+    source: "web",
+    ownerId: ctx.ownerId,
+    metadata: result.ok
+      ? { proposalId: ctx.proposalId, symbol: result.symbol, from: result.from, to: result.to }
+      : { proposalId: ctx.proposalId, outcome: "refused", reason: result.reason },
+  });
+  revalidatePath("/proposals");
+}
+
+/**
+ * Form action: owner reduces an APPROVED proposal's order quantity. Reduce-only
+ * (AGENTS.md §2) — the DB guard refuses anything that isn't a strictly smaller
+ * positive integer, so this can de-risk but never increase an approved size.
+ */
+export async function reduceProposalAction(formData: FormData): Promise<void> {
+  const ctx = await requireOwnerAndProposalId(formData);
+  if (!ctx) return;
+
+  const newQuantity = Number(formData.get("quantity"));
+  if (!Number.isFinite(newQuantity)) return;
+
+  const result = await reduceProposalQuantity(
+    getDb(),
+    ctx.proposalId,
+    newQuantity,
+  );
+  await recordAuditEvent({
+    type: "proposal.quantity_reduced",
+    source: "web",
+    ownerId: ctx.ownerId,
+    metadata: result.ok
+      ? {
+          proposalId: ctx.proposalId,
+          symbol: result.symbol,
+          previous: result.previous,
+          quantity: result.quantity,
+        }
+      : { proposalId: ctx.proposalId, outcome: "refused", reason: result.reason },
+  });
+  revalidatePath("/proposals");
 }

@@ -35,6 +35,10 @@ export interface ProposalRow {
   /** True when the owner may still approve/reject — drives the action buttons.
    * A past-expiry row that the sweep hasn't flipped yet is NOT actionable. */
   actionable: boolean;
+  /** Approval-time sized share count, or null before approval. */
+  quantity: number | null;
+  /** True when the owner may reduce the quantity (APPROVED with qty > 1). */
+  reducible: boolean;
 }
 
 export interface ProposalsView {
@@ -76,6 +80,8 @@ function buildRow(p: TradeProposal, nowMs: number): ProposalRow {
     expiresAt: expiresAt ? expiresAt.toISOString() : null,
     isExpired,
     actionable: isActionable(p.status as ProposalStatus) && !isExpired,
+    quantity: p.quantity,
+    reducible: p.status === "APPROVED" && (p.quantity ?? 0) > 1,
   };
 }
 

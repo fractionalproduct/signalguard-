@@ -19,6 +19,7 @@
     "@signalguard/config": "workspace:*",
     "@signalguard/database": "workspace:*",
     "@signalguard/market-data": "workspace:*",
+    "@signalguard/position-sizing": "workspace:*",
     "@signalguard/proposals": "workspace:*",
     "@signalguard/watchlist-analysis": "workspace:*",
     "next": "^14.2.13",

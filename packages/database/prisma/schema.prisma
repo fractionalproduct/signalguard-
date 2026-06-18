@@ -360,6 +360,14 @@ model TradeProposal {
   pTargetFirstUpper Float?
   confidence        String
   status            TradeProposalStatus @default(DRAFT)
+  // Deterministically-sized share count, set when the owner approves (null
+  // until then). This is an approval-time CEILING, not a cleared order size:
+  // account equity/cash/positions drift before M12 submission, so the
+  // execution layer must submit min(quantity, freshly-resized) and re-run the
+  // risk engine. The owner may REDUCE this autonomously (AGENTS.md §2);
+  // increasing it requires re-approval. APPROVED with a quantity is NOT
+  // clearance to trade.
+  quantity          Int?
   notes             String?
   expiresAt         DateTime?
   createdAt         DateTime            @default(now())

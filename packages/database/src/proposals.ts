@@ -7,6 +7,7 @@ import {
   EXPIRY_ELIGIBLE_STATUSES,
   canTransition,
   isExpiryEligible,
+  validateReduction,
   type ProposalDraft,
   type ProposalStatus,
 } from "@signalguard/proposals";
@@ -48,6 +49,15 @@ export interface ListProposalsOptions {
   symbol?: string;
   /** Cap, clamped to [1, 200]. Default 50. */
   limit?: number;
+}
+
+/** Single proposal by id, or null. Used by the approval flow to read entry /
+ * stop / risk profile before deterministically sizing the position. */
+export function getProposalById(
+  db: PrismaClient,
+  proposalId: string,
+): Promise<TradeProposal | null> {
+  return db.tradeProposal.findUnique({ where: { id: proposalId } });
 }
 
 /** Descending createdAt. */
@@ -99,6 +109,7 @@ export async function setProposalStatus(
   proposalId: string,
   to: ProposalStatus,
   now: Date = new Date(),
+  extraData: { quantity?: number } = {},
 ): Promise<SetProposalStatusResult> {
   const current = await db.tradeProposal.findUnique({
     where: { id: proposalId },
@@ -124,19 +135,85 @@ export async function setProposalStatus(
 
   const res = await db.tradeProposal.updateMany({
     where: { id: proposalId, status: from as TradeProposalStatus },
-    data: { status: to as TradeProposalStatus },
+    data: { status: to as TradeProposalStatus, ...extraData },
   });
   if (res.count === 0) return { ok: false, reason: "conflict", from };
 
   return { ok: true, from, to, symbol: current.symbol };
 }
 
-/** Owner approves a proposal (DRAFT | PENDING_APPROVAL -> APPROVED). */
+/**
+ * Owner approves a proposal (DRAFT | PENDING_APPROVAL -> APPROVED) and records
+ * the deterministically-sized quantity in the same guarded write. `quantity`
+ * is the approval-time ceiling (see the schema field doc) — the caller is
+ * responsible for computing it via @signalguard/position-sizing before calling.
+ */
 export function approveProposal(
   db: PrismaClient,
   proposalId: string,
+  quantity: number,
+  now: Date = new Date(),
 ): Promise<SetProposalStatusResult> {
-  return setProposalStatus(db, proposalId, "APPROVED");
+  return setProposalStatus(db, proposalId, "APPROVED", now, { quantity });
+}
+
+export type ReduceProposalResult =
+  | { ok: true; symbol: string; previous: number; quantity: number }
+  | {
+      ok: false;
+      reason:
+        | "not_found"
+        | "not_approved"
+        | "not_sized"
+        | "not_an_integer"
+        | "below_minimum"
+        | "not_a_reduction"
+        | "conflict";
+    };
+
+/**
+ * Reduce an APPROVED proposal's order quantity. Reduce-only (AGENTS.md §2):
+ * the validation refuses any new value that isn't a positive integer strictly
+ * below the current quantity, so the owner can de-risk autonomously but can
+ * never increase an approved order quantity without re-approval.
+ *
+ * Concurrency-safe: the write is gated on BOTH status=APPROVED and the exact
+ * current quantity, so a racing reduction reports `conflict` instead of one
+ * reduction silently overwriting another.
+ */
+export async function reduceProposalQuantity(
+  db: PrismaClient,
+  proposalId: string,
+  newQuantity: number,
+): Promise<ReduceProposalResult> {
+  const current = await db.tradeProposal.findUnique({
+    where: { id: proposalId },
+    select: { status: true, quantity: true, symbol: true },
+  });
+  if (!current) return { ok: false, reason: "not_found" };
+  if (current.status !== "APPROVED") {
+    return { ok: false, reason: "not_approved" };
+  }
+
+  const check = validateReduction(current.quantity, newQuantity);
+  if (!check.ok) return { ok: false, reason: check.reason };
+
+  const res = await db.tradeProposal.updateMany({
+    where: {
+      id: proposalId,
+      status: "APPROVED",
+      quantity: current.quantity,
+    },
+    data: { quantity: newQuantity },
+  });
+  if (res.count === 0) return { ok: false, reason: "conflict" };
+
+  return {
+    ok: true,
+    symbol: current.symbol,
+    previous: current.quantity as number,
+    quantity: newQuantity,
+  };
 }
 
 /** Owner rejects a proposal (DRAFT | PENDING_APPROVAL -> REJECTED). */
