@@ -45,6 +45,7 @@ export { acknowledgeAlert } from "./alerts-acknowledge.js";
 export {
   createProposal,
   getProposalById,
+  listAuditEventsForProposal,
   listProposals,
   setProposalStatus,
   setProposalRiskProfile,

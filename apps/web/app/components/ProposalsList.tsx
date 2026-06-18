@@ -91,7 +91,14 @@ function ProposalsTable({ rows }: { rows: ReadonlyArray<ProposalRow> }) {
       <tbody>
         {rows.map((row) => (
           <tr key={row.id}>
-            <td title={row.createdAt}>{row.createdAtRelative}</td>
+            <td title={row.createdAt}>
+              <Link
+                href={`/proposals/${row.id}`}
+                aria-label={`Open ${row.symbol} proposal details`}
+              >
+                {row.createdAtRelative}
+              </Link>
+            </td>
             <td>
               <Link
                 href={`/research/${encodeURIComponent(row.symbol)}`}

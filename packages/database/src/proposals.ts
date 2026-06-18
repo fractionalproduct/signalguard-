@@ -1,4 +1,5 @@
 import type {
+  AuditEvent,
   PrismaClient,
   TradeProposal,
   TradeProposalStatus,
@@ -59,6 +60,25 @@ export function getProposalById(
   proposalId: string,
 ): Promise<TradeProposal | null> {
   return db.tradeProposal.findUnique({ where: { id: proposalId } });
+}
+
+/**
+ * Audit events recorded against a specific proposal, oldest first — the
+ * proposal's activity trail (status changes, sizing refusals, reductions).
+ * Matches on the `proposalId` key inside each event's JSON metadata.
+ *
+ * Best-effort, like the audit log itself: recordAuditEvent never blocks
+ * business logic, so a status change may have no row here. Callers must treat
+ * the result as activity, not an authoritative history.
+ */
+export function listAuditEventsForProposal(
+  db: PrismaClient,
+  proposalId: string,
+): Promise<AuditEvent[]> {
+  return db.auditEvent.findMany({
+    where: { metadata: { path: ["proposalId"], equals: proposalId } },
+    orderBy: { createdAt: "asc" },
+  });
 }
 
 /** Descending createdAt. */

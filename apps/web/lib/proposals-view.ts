@@ -73,7 +73,7 @@ function buildRow(p: TradeProposal, nowMs: number): ProposalRow {
     stop: formatUsd(p.stopCents),
     target: formatUsd(p.targetCents),
     horizonBars: p.horizonBars,
-    probabilityLabel: formatProbability(p),
+    probabilityLabel: formatProposalProbability(p),
     confidence: p.confidence,
     sampleSize: p.sampleSize,
     createdAtRelative: relativeTime(p.createdAt.getTime(), nowMs),
@@ -90,7 +90,13 @@ function buildRow(p: TradeProposal, nowMs: number): ProposalRow {
   };
 }
 
-function formatProbability(p: TradeProposal): string {
+/**
+ * Format a proposal's P(target before stop) for display. SAFETY-CRITICAL: never
+ * renders a precise number when confidence is below the floor (AGENTS.md §12) —
+ * the qualitative "Insufficient data" shows instead. Shared by the list and the
+ * detail page so the gating rule lives in exactly one place.
+ */
+export function formatProposalProbability(p: TradeProposal): string {
   if (
     p.confidence !== "OK" ||
     p.pTargetFirstPoint === null ||
