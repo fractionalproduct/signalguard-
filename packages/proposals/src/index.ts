@@ -17,6 +17,9 @@ export {
   currentInvestedCentsFromLongPositions,
   resolveSizingLimits,
   validateReduction,
+  SELECTABLE_RISK_PROFILES,
+  isSelectableRiskProfile,
   type PositionForSizing,
   type ReductionCheck,
+  type SelectableRiskProfile,
 } from "./sizing.js";

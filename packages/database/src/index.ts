@@ -47,11 +47,13 @@ export {
   getProposalById,
   listProposals,
   setProposalStatus,
+  setProposalRiskProfile,
   approveProposal,
   rejectProposal,
   reduceProposalQuantity,
   expireProposals,
   type ListProposalsOptions,
   type SetProposalStatusResult,
+  type SetRiskProfileResult,
   type ReduceProposalResult,
 } from "./proposals.js";

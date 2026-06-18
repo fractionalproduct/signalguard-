@@ -7,6 +7,7 @@ import {
   EXPIRY_ELIGIBLE_STATUSES,
   canTransition,
   isExpiryEligible,
+  isSelectableRiskProfile,
   validateReduction,
   type ProposalDraft,
   type ProposalStatus,
@@ -74,6 +75,47 @@ export async function listProposals(
     orderBy: { createdAt: "desc" },
     take: limit,
   });
+}
+
+export type SetRiskProfileResult =
+  | { ok: true; symbol: string; riskProfile: string }
+  | {
+      ok: false;
+      reason: "not_found" | "invalid_profile" | "not_editable";
+    };
+
+/**
+ * Change a proposal's risk profile. Editable only while the proposal is still
+ * pre-decision (DRAFT / PENDING_APPROVAL) — the profile drives the sizing
+ * limits applied at approval, so it must be locked once a quantity has been
+ * sized. Rejects any profile the owner isn't allowed to assign (unknown, or
+ * EDUCATION_ONLY which can't be sized). Concurrency-safe via a status-gated
+ * conditional update.
+ */
+export async function setProposalRiskProfile(
+  db: PrismaClient,
+  proposalId: string,
+  riskProfile: string,
+): Promise<SetRiskProfileResult> {
+  if (!isSelectableRiskProfile(riskProfile)) {
+    return { ok: false, reason: "invalid_profile" };
+  }
+  const current = await db.tradeProposal.findUnique({
+    where: { id: proposalId },
+    select: { status: true, symbol: true },
+  });
+  if (!current) return { ok: false, reason: "not_found" };
+
+  const res = await db.tradeProposal.updateMany({
+    where: {
+      id: proposalId,
+      status: { in: ["DRAFT", "PENDING_APPROVAL"] },
+    },
+    data: { riskProfile },
+  });
+  if (res.count === 0) return { ok: false, reason: "not_editable" };
+
+  return { ok: true, symbol: current.symbol, riskProfile };
 }
 
 export type SetProposalStatusResult =

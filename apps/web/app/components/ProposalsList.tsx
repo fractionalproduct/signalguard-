@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { SELECTABLE_RISK_PROFILES } from "@signalguard/proposals";
 import {
   approveProposalAction,
   reduceProposalAction,
   rejectProposalAction,
+  setRiskProfileAction,
 } from "../(dashboard)/proposals/actions";
 import type { ProposalsState } from "../../lib/proposals";
 import type { ProposalRow } from "../../lib/proposals-view";
@@ -97,7 +99,9 @@ function ProposalsTable({ rows }: { rows: ReadonlyArray<ProposalRow> }) {
                 <strong>{row.symbol}</strong>
               </Link>
             </td>
-            <td>{row.riskProfile}</td>
+            <td>
+              <RiskProfileCell row={row} />
+            </td>
             <td>{row.entry}</td>
             <td>{row.stop}</td>
             <td>{row.target}</td>
@@ -140,6 +144,31 @@ function ProposalsTable({ rows }: { rows: ReadonlyArray<ProposalRow> }) {
         ))}
       </tbody>
     </table>
+  );
+}
+
+function RiskProfileCell({ row }: { row: ProposalRow }) {
+  // The profile drives sizing at approval, so it's only editable while the
+  // proposal is still pre-decision (the same `actionable` window).
+  if (!row.actionable) return <>{row.riskProfile}</>;
+  return (
+    <form action={setRiskProfileAction} className="profile-form">
+      <input type="hidden" name="proposalId" value={row.id} />
+      <select
+        name="riskProfile"
+        defaultValue={row.riskProfile}
+        aria-label={`Risk profile for ${row.symbol}`}
+      >
+        {SELECTABLE_RISK_PROFILES.map((p) => (
+          <option key={p} value={p}>
+            {p}
+          </option>
+        ))}
+      </select>
+      <button type="submit" className="ack-button" aria-label={`Apply risk profile to ${row.symbol}`}>
+        Set
+      </button>
+    </form>
   );
 }
 

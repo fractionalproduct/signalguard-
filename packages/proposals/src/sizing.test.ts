@@ -1,7 +1,9 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import {
+  SELECTABLE_RISK_PROFILES,
   currentInvestedCentsFromLongPositions,
+  isSelectableRiskProfile,
   resolveSizingLimits,
   validateReduction,
   type PositionForSizing,
@@ -70,6 +72,23 @@ test("validateReduction refuses non-integers and below-minimum", () => {
     ok: false,
     reason: "below_minimum",
   });
+});
+
+test("selectable profiles are the three tradeable ones, excluding EDUCATION_ONLY", () => {
+  assert.deepEqual([...SELECTABLE_RISK_PROFILES], [
+    "CONSERVATIVE",
+    "MODERATE",
+    "ASSERTIVE_PAPER",
+  ]);
+  assert.equal(isSelectableRiskProfile("MODERATE"), true);
+  assert.equal(isSelectableRiskProfile("CONSERVATIVE"), true);
+  assert.equal(isSelectableRiskProfile("ASSERTIVE_PAPER"), true);
+});
+
+test("isSelectableRiskProfile rejects EDUCATION_ONLY and unknown strings", () => {
+  assert.equal(isSelectableRiskProfile("EDUCATION_ONLY"), false);
+  assert.equal(isSelectableRiskProfile("BOGUS"), false);
+  assert.equal(isSelectableRiskProfile(""), false);
 });
 
 test("validateReduction refuses equal or larger (no autonomous increase)", () => {

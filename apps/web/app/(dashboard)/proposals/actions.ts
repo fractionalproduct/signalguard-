@@ -11,6 +11,7 @@ import {
   listLatestWatchlistSnapshots,
   reduceProposalQuantity,
   rejectProposal,
+  setProposalRiskProfile,
 } from "@signalguard/database";
 import { generateProposalForSymbol } from "@signalguard/proposals";
 import { sizeProposalForApproval } from "../../../lib/proposal-sizing";
@@ -162,6 +163,30 @@ export async function approveProposalAction(formData: FormData): Promise<void> {
           quantity: sizing.result.quantity,
           limitingFactor: sizing.result.limitingFactor,
         }
+      : { proposalId: ctx.proposalId, outcome: "refused", reason: result.reason },
+  });
+  revalidatePath("/proposals");
+}
+
+/**
+ * Form action: owner changes a DRAFT/PENDING_APPROVAL proposal's risk profile.
+ * The profile drives the sizing limits applied at approval, so the DB guard
+ * refuses the change once the proposal has left the pre-decision states.
+ */
+export async function setRiskProfileAction(formData: FormData): Promise<void> {
+  const ctx = await requireOwnerAndProposalId(formData);
+  if (!ctx) return;
+
+  const riskProfile = String(formData.get("riskProfile") ?? "").trim();
+  if (!riskProfile) return;
+
+  const result = await setProposalRiskProfile(getDb(), ctx.proposalId, riskProfile);
+  await recordAuditEvent({
+    type: "proposal.risk_profile_changed",
+    source: "web",
+    ownerId: ctx.ownerId,
+    metadata: result.ok
+      ? { proposalId: ctx.proposalId, symbol: result.symbol, riskProfile: result.riskProfile }
       : { proposalId: ctx.proposalId, outcome: "refused", reason: result.reason },
   });
   revalidatePath("/proposals");

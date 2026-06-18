@@ -15,6 +15,26 @@
 import { RISK_PROFILE_DEFAULTS, type RiskProfile } from "@signalguard/domain";
 import type { Cents, SizingLimits } from "@signalguard/position-sizing";
 
+/**
+ * Risk profiles the owner may assign to a proposal. EDUCATION_ONLY is excluded
+ * deliberately — it sizes to zero shares (no trading), so offering it as a
+ * proposal profile would only ever produce un-approvable proposals.
+ */
+export const SELECTABLE_RISK_PROFILES = [
+  "CONSERVATIVE",
+  "MODERATE",
+  "ASSERTIVE_PAPER",
+] as const satisfies readonly RiskProfile[];
+
+export type SelectableRiskProfile = (typeof SELECTABLE_RISK_PROFILES)[number];
+
+/** True when `value` is a risk profile the owner may assign to a proposal. */
+export function isSelectableRiskProfile(
+  value: string,
+): value is SelectableRiskProfile {
+  return (SELECTABLE_RISK_PROFILES as readonly string[]).includes(value);
+}
+
 /** Minimal shape of a broker position needed for invested-capital math. */
 export interface PositionForSizing {
   side: "long" | "short";
