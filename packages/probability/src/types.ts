@@ -7,10 +7,10 @@
  *  - otherwise show an interval, a qualitative assessment, INSUFFICIENT_DATA,
  *    or OUT_OF_DISTRIBUTION
  *
- * This first slice covers the empirical aggregation primitives — pure stats
- * on observed outcome / return arrays with Wilson-score confidence intervals
- * for proportions. Calibration, regime-conditioning, and OOD detection land
- * in later slices.
+ * Slice 1 covered the empirical aggregation primitives. Slice 2 (this) adds
+ * an anchor scanner that combines M8 per-anchor primitives with the M9
+ * aggregators. Calibration, regime-conditioning, and OOD detection land in
+ * later slices.
  */
 
 /** Sample-size floor below which a precise probability MUST NOT be reported. */
@@ -61,4 +61,50 @@ export interface ReturnStats {
   min: number;
   max: number;
   confidence: ConfidenceLabel;
+}
+
+/** Per-anchor row preserved by scanAnchors for traceability / debugging. */
+export interface AnchorScanRow {
+  anchorIndex: number;
+  anchorCloseCents: number;
+  entryCents: number;
+  stopCents: number;
+  targetCents: number;
+  outcome: import("@signalguard/historical-analysis").StopTargetOutcome;
+  outcomeBarIndex: number;
+  mfe: number;
+  mae: number;
+  /** Forward return at the horizon close (caller's primary signal). */
+  returnFromAnchor: number;
+}
+
+export interface AnchorScanReason {
+  anchorIndex: number;
+  /**
+   * One of:
+   *   "SELECTOR_REJECTED"     — selector predicate returned false
+   *   "NO_LEVELS"             — strategyLevels returned null
+   *   "INSUFFICIENT_HORIZON"  — fewer than minBarsAfter bars after the anchor
+   *   "ANCHOR_CLOSE_ZERO"     — anchor.closeCents === 0 (would yield infinite returns)
+   */
+  reason:
+    | "SELECTOR_REJECTED"
+    | "NO_LEVELS"
+    | "INSUFFICIENT_HORIZON"
+    | "ANCHOR_CLOSE_ZERO";
+}
+
+export interface AnchorScanResult {
+  /** Total candidate indexes considered (every index in [0, bars.length)). */
+  totalAnchorsConsidered: number;
+  /** Anchors that produced a row — selector accepted + levels emitted + horizon OK. */
+  totalAnchorsAnalyzed: number;
+  /** Reason-coded skip records per excluded anchor, in source order. */
+  skipped: ReadonlyArray<AnchorScanReason>;
+  /** Aggregated stop/target outcomes across analyzed anchors. */
+  outcomes: AggregatedOutcomes;
+  /** Aggregated forward-return stats across analyzed anchors. */
+  returns: ReturnStats | null;
+  /** Per-anchor rows for traceability — order matches anchorIndex ascending. */
+  perAnchor: ReadonlyArray<AnchorScanRow>;
 }

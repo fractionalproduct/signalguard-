@@ -18,7 +18,8 @@
     "test": "pnpm run build && node --test dist/*.test.js"
   },
   "dependencies": {
-    "@signalguard/historical-analysis": "workspace:*"
+    "@signalguard/historical-analysis": "workspace:*",
+    "@signalguard/market-data": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",
