@@ -33,6 +33,8 @@
     "lib/sparkline-view.ts",
     "lib/sparkline-view.test.ts",
     "lib/alerts-view.ts",
-    "lib/alerts-view.test.ts"
+    "lib/alerts-view.test.ts",
+    "lib/email-template.ts",
+    "lib/email.test.ts"
   ]
 }
