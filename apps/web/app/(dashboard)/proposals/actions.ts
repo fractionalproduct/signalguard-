@@ -12,6 +12,7 @@ import {
   listLatestWatchlistSnapshots,
   reduceProposalQuantity,
   rejectProposal,
+  setProposalNotes,
   setProposalRiskProfile,
 } from "@signalguard/database";
 import { generateProposalForSymbol } from "@signalguard/proposals";
@@ -190,6 +191,29 @@ export async function setRiskProfileAction(formData: FormData): Promise<void> {
       ? { proposalId: ctx.proposalId, symbol: result.symbol, riskProfile: result.riskProfile }
       : { proposalId: ctx.proposalId, outcome: "refused", reason: result.reason },
   });
+  revalidatePath("/proposals");
+}
+
+/**
+ * Form action: owner sets/clears a proposal's notes (detail page). Editable on
+ * any non-terminal proposal; the note body is never logged — only its length.
+ * Revalidates the detail page so the saved note re-renders.
+ */
+export async function setNotesAction(formData: FormData): Promise<void> {
+  const ctx = await requireOwnerAndProposalId(formData);
+  if (!ctx) return;
+
+  const notes = String(formData.get("notes") ?? "");
+  const result = await setProposalNotes(getDb(), ctx.proposalId, notes);
+  await recordAuditEvent({
+    type: "proposal.notes_updated",
+    source: "web",
+    ownerId: ctx.ownerId,
+    metadata: result.ok
+      ? { proposalId: ctx.proposalId, symbol: result.symbol, length: result.length }
+      : { proposalId: ctx.proposalId, outcome: "refused", reason: result.reason },
+  });
+  revalidatePath(`/proposals/${ctx.proposalId}`);
   revalidatePath("/proposals");
 }
 

@@ -6,6 +6,7 @@
  * (never a precise number below the confidence floor). The activity list is
  * explicitly best-effort — see `activityAvailable` and the loader.
  */
+import { isTerminal, type ProposalStatus } from "@signalguard/proposals";
 import type { AuditEvent, TradeProposal } from "@signalguard/database";
 import { formatUsd } from "./money";
 import { formatProposalProbability } from "./proposals-view";
@@ -34,6 +35,8 @@ export interface ProposalDetailView {
   sampleSize: number;
   quantity: number | null;
   notes: string | null;
+  /** True when notes can still be edited — any non-terminal proposal. */
+  notesEditable: boolean;
   createdAt: string;
   createdAtRelative: string;
   expiresAt: string | null;
@@ -75,6 +78,7 @@ export function buildProposalDetailView(
     sampleSize: proposal.sampleSize,
     quantity: proposal.quantity,
     notes: proposal.notes,
+    notesEditable: !isTerminal(proposal.status as ProposalStatus),
     createdAt: proposal.createdAt.toISOString(),
     createdAtRelative: relativeTime(proposal.createdAt.getTime(), nowMs),
     expiresAt: expiresAt ? expiresAt.toISOString() : null,

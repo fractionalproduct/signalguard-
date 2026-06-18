@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { MAX_PROPOSAL_NOTES_LENGTH } from "@signalguard/database";
+import { setNotesAction } from "../(dashboard)/proposals/actions";
 import type { ProposalDetailState } from "../../lib/proposal-detail";
 import type {
   ProposalActivityRow,
@@ -81,9 +83,26 @@ export function ProposalDetail({ state }: { state: ProposalDetailState }) {
       </dl>
 
       <h2>Notes</h2>
-      <p className={v.notes ? undefined : "muted"}>
-        {v.notes ?? "No notes."}
-      </p>
+      {v.notesEditable ? (
+        <form action={setNotesAction} className="notes-form">
+          <input type="hidden" name="proposalId" value={v.id} />
+          <textarea
+            name="notes"
+            rows={3}
+            maxLength={MAX_PROPOSAL_NOTES_LENGTH}
+            defaultValue={v.notes ?? ""}
+            placeholder="Add a rationale or reminder for this proposal…"
+            aria-label={`Notes for ${v.symbol} proposal`}
+          />
+          <button type="submit" className="ack-button" aria-label="Save notes">
+            Save notes
+          </button>
+        </form>
+      ) : (
+        <p className={v.notes ? undefined : "muted"}>
+          {v.notes ?? "No notes."}
+        </p>
+      )}
 
       <h2>Activity</h2>
       {!v.activityAvailable ? (

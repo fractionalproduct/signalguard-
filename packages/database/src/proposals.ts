@@ -97,6 +97,49 @@ export async function listProposals(
   });
 }
 
+/** Max stored note length. Generous for a trade rationale; bounds the column
+ * and the audit metadata. */
+export const MAX_PROPOSAL_NOTES_LENGTH = 2000;
+
+export type SetNotesResult =
+  | { ok: true; symbol: string; length: number }
+  | { ok: false; reason: "not_found" | "not_editable" | "too_long" };
+
+/**
+ * Set (or clear) a proposal's free-text notes. Editable on any non-terminal
+ * proposal; a terminal one (REJECTED / EXPIRED / CANCELED) is immutable.
+ * An empty/whitespace note clears the field to null. The note body is never
+ * logged by callers — only its length — since it's owner free text.
+ */
+export async function setProposalNotes(
+  db: PrismaClient,
+  proposalId: string,
+  notes: string,
+): Promise<SetNotesResult> {
+  const trimmed = notes.trim();
+  if (trimmed.length > MAX_PROPOSAL_NOTES_LENGTH) {
+    return { ok: false, reason: "too_long" };
+  }
+  const value = trimmed.length === 0 ? null : trimmed;
+
+  const current = await db.tradeProposal.findUnique({
+    where: { id: proposalId },
+    select: { symbol: true },
+  });
+  if (!current) return { ok: false, reason: "not_found" };
+
+  const res = await db.tradeProposal.updateMany({
+    where: {
+      id: proposalId,
+      status: { notIn: ["REJECTED", "EXPIRED", "CANCELED"] },
+    },
+    data: { notes: value },
+  });
+  if (res.count === 0) return { ok: false, reason: "not_editable" };
+
+  return { ok: true, symbol: current.symbol, length: value?.length ?? 0 };
+}
+
 export type SetRiskProfileResult =
   | { ok: true; symbol: string; riskProfile: string }
   | {

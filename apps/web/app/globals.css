@@ -593,3 +593,15 @@ h2 {
   border-bottom: 1px solid rgba(154, 163, 178, 0.15);
   font-size: 13px;
 }
+.notes-form { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; max-width: 520px; }
+.notes-form textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(154, 163, 178, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}

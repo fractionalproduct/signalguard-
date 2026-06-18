@@ -105,3 +105,20 @@ test("activityAvailable=false surfaces the degraded flag", () => {
   assert.equal(v.activityAvailable, false);
   assert.equal(v.activity.length, 0);
 });
+
+test("notesEditable: true for non-terminal, false for terminal statuses", () => {
+  for (const status of ["DRAFT", "PENDING_APPROVAL", "APPROVED"] as const) {
+    assert.equal(
+      buildProposalDetailView(proposal({ status }), [], true, NOW).notesEditable,
+      true,
+      `${status} notes should be editable`,
+    );
+  }
+  for (const status of ["REJECTED", "EXPIRED", "CANCELED"] as const) {
+    assert.equal(
+      buildProposalDetailView(proposal({ status }), [], true, NOW).notesEditable,
+      false,
+      `${status} notes should be locked`,
+    );
+  }
+});
