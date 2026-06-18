@@ -24,6 +24,8 @@ export type {
   ManipulationAlert,
   Owner,
   TechnicalAnalysisSnapshot,
+  TradeProposal,
+  TradeProposalStatus,
 } from "@prisma/client";
 export {
   buildSnapshotRow,
@@ -40,3 +42,9 @@ export {
   type ManipulationAlertInput,
 } from "./manipulation-alerts.js";
 export { acknowledgeAlert } from "./alerts-acknowledge.js";
+export {
+  createProposal,
+  listProposals,
+  updateProposalStatus,
+  type ListProposalsOptions,
+} from "./proposals.js";

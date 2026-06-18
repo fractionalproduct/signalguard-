@@ -330,3 +330,41 @@ model ManipulationAlert {
   @@index([symbol, triggeredAt(sort: Desc)])
   @@index([acknowledged, triggeredAt(sort: Desc)])
 }
+
+/// M11 trade proposal. A proposal records the candidate entry/stop/target
+/// the proposal layer produced from a snapshot + risk profile + (optionally)
+/// a historical scan; the owner approves / rejects in the UI before any
+/// order ever reaches the restricted trading worker. PAPER ONLY (AGENTS.md
+/// s2) — no field encodes anything that could be interpreted as a live
+/// trade.
+enum TradeProposalStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+model TradeProposal {
+  id                String              @id @default(cuid())
+  symbol            String
+  snapshotId        String?
+  riskProfile       String
+  entryCents        Int
+  stopCents         Int
+  targetCents       Int
+  horizonBars       Int
+  sampleSize        Int                 @default(0)
+  pTargetFirstPoint Float?
+  pTargetFirstLower Float?
+  pTargetFirstUpper Float?
+  confidence        String
+  status            TradeProposalStatus @default(DRAFT)
+  notes             String?
+  expiresAt         DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([symbol, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+}

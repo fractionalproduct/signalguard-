@@ -309,6 +309,9 @@ importers:
       '@signalguard/auth':
         specifier: workspace:*
         version: link:../auth
+      '@signalguard/proposals':
+        specifier: workspace:*
+        version: link:../proposals
       '@signalguard/watchlist-analysis':
         specifier: workspace:*
         version: link:../watchlist-analysis
@@ -440,6 +443,19 @@ importers:
       '@signalguard/market-data':
         specifier: workspace:*
         version: link:../market-data
+    devDependencies:
+      '@types/node':
+        specifier: ^22.7.4
+        version: 22.19.21
+      typescript:
+        specifier: ^5.6.2
+        version: 5.9.3
+
+  packages/proposals:
+    dependencies:
+      '@signalguard/probability':
+        specifier: workspace:*
+        version: link:../probability
     devDependencies:
       '@types/node':
         specifier: ^22.7.4

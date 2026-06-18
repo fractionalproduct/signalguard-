@@ -35,6 +35,8 @@
     "lib/alerts-view.ts",
     "lib/alerts-view.test.ts",
     "lib/email-template.ts",
-    "lib/email.test.ts"
+    "lib/email.test.ts",
+    "lib/proposals-view.ts",
+    "lib/proposals-view.test.ts"
   ]
 }

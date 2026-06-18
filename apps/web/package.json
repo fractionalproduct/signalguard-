@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "echo \"(lint configured in Milestone 2)\"",
     "pretest": "tsc -p tsconfig.test.json",
-    "test": "node --test dist-test/lib/money.test.js dist-test/lib/portfolio-view.test.js dist-test/lib/signals-view.test.js dist-test/lib/congress-view.test.js dist-test/lib/telegram-channel.test.js dist-test/lib/research-view.test.js dist-test/lib/cron-auth.test.js dist-test/lib/research-symbol-view.test.js dist-test/lib/sparkline-view.test.js dist-test/lib/alerts-view.test.js dist-test/lib/email.test.js"
+    "test": "node --test dist-test/lib/money.test.js dist-test/lib/portfolio-view.test.js dist-test/lib/signals-view.test.js dist-test/lib/congress-view.test.js dist-test/lib/telegram-channel.test.js dist-test/lib/research-view.test.js dist-test/lib/cron-auth.test.js dist-test/lib/research-symbol-view.test.js dist-test/lib/sparkline-view.test.js dist-test/lib/alerts-view.test.js dist-test/lib/email.test.js dist-test/lib/proposals-view.test.js"
   },
   "dependencies": {
     "@signalguard/alpaca-market-data": "workspace:*",
