@@ -21,6 +21,7 @@ export function getDb(): PrismaClient {
 export { PrismaClient };
 export type {
   AuditEvent,
+  ManipulationAlert,
   Owner,
   TechnicalAnalysisSnapshot,
 } from "@prisma/client";
@@ -31,3 +32,10 @@ export {
   type ListLatestWatchlistSnapshotsOptions,
   type SnapshotRowInput,
 } from "./snapshots.js";
+export {
+  buildAlertsForTransition,
+  listRecentAlerts,
+  recordManipulationAlerts,
+  type ListRecentAlertsOptions,
+  type ManipulationAlertInput,
+} from "./manipulation-alerts.js";

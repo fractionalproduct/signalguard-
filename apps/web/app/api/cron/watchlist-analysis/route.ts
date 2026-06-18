@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { createAlpacaMarketDataFromEnv } from "@signalguard/alpaca-market-data";
-import { getDb, recordWatchlistSnapshot } from "@signalguard/database";
+import {
+  buildAlertsForTransition,
+  getDb,
+  listLatestWatchlistSnapshots,
+  recordManipulationAlerts,
+  recordWatchlistSnapshot,
+} from "@signalguard/database";
 import {
   InMemoryMarketData,
   type BarInterval,
@@ -107,7 +113,46 @@ export async function GET(req: Request): Promise<Response> {
       });
     },
     async recordSnapshot(snapshot: WatchlistAnalysisSnapshot): Promise<void> {
-      await recordWatchlistSnapshot(getDb(), snapshot, interval);
+      const db = getDb();
+      // Pre-write: look up the previous snapshot for this symbol+interval so
+      // we can detect false->true transitions on the manipulation flags. A
+      // missing prev (first observation) yields alerts for every flag that's
+      // currently true.
+      const [prev] = await listLatestWatchlistSnapshots(db, {
+        symbol: snapshot.symbol,
+        barInterval: interval,
+        limit: 1,
+      });
+      const { id: snapshotId } = await recordWatchlistSnapshot(
+        db,
+        snapshot,
+        interval,
+      );
+      // Build the synthetic curr row for the detector. We use the field set
+      // the detector reads — symbol, computedAt, the three flags, plus the
+      // id we just persisted.
+      const currRow = {
+        id: snapshotId,
+        symbol: snapshot.symbol.toUpperCase(),
+        computedAt: new Date(snapshot.computedAt),
+        unusualVolume: snapshot.manipulation.unusualVolume,
+        pumpAndDump: snapshot.manipulation.pumpAndDump,
+        gapAndFade: snapshot.manipulation.gapAndFade,
+      } as Parameters<typeof buildAlertsForTransition>[1];
+      const alerts = buildAlertsForTransition(prev ?? null, currRow);
+      if (alerts.length > 0) {
+        try {
+          await recordManipulationAlerts(db, alerts);
+        } catch (err) {
+          // Alert insert failing should not block snapshot persistence. The
+          // cycle's per-symbol error capture would otherwise count the whole
+          // symbol as failed for an issue downstream of the main write.
+          console.error(
+            "[cron/watchlist-analysis] recordManipulationAlerts failed:",
+            err,
+          );
+        }
+      }
     },
   };
 

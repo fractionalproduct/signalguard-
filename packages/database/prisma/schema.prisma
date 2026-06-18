@@ -307,3 +307,26 @@ model TechnicalAnalysisSnapshot {
   @@index([symbol, computedAt(sort: Desc)])
   @@index([computedAt(sort: Desc)])
 }
+
+/// One ManipulationAlert per detector-flag transition (false -> true) on a
+/// TechnicalAnalysisSnapshot. Surfaces the moment a manipulation pattern
+/// FIRST fires for a symbol on a given bar interval — repeated true-true
+/// snapshots do NOT emit additional alerts, which keeps the feed quiet on
+/// long-running detections.
+model ManipulationAlert {
+  id           String   @id @default(cuid())
+  symbol       String
+  /// One of "UNUSUAL_VOLUME" | "PUMP_AND_DUMP" | "GAP_AND_FADE". String
+  /// (not a Prisma enum) so adding detectors later is migration-free.
+  alertType    String
+  triggeredAt  DateTime
+  /// Cuid of the TechnicalAnalysisSnapshot row that fired the transition.
+  /// Plain string FK-style (no relation) to keep the alert insert decoupled
+  /// from a Prisma include/connect dance.
+  snapshotId   String
+  acknowledged Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([symbol, triggeredAt(sort: Desc)])
+  @@index([acknowledged, triggeredAt(sort: Desc)])
+}

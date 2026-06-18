@@ -31,6 +31,8 @@
     "lib/research-symbol-view.ts",
     "lib/research-symbol-view.test.ts",
     "lib/sparkline-view.ts",
-    "lib/sparkline-view.test.ts"
+    "lib/sparkline-view.test.ts",
+    "lib/alerts-view.ts",
+    "lib/alerts-view.test.ts"
   ]
 }
