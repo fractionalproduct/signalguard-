@@ -6,7 +6,7 @@
   "crons": [
     {
       "path": "/api/cron/watchlist-analysis",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }
