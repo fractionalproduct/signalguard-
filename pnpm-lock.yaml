@@ -437,6 +437,9 @@ importers:
       '@signalguard/historical-analysis':
         specifier: workspace:*
         version: link:../historical-analysis
+      '@signalguard/market-data':
+        specifier: workspace:*
+        version: link:../market-data
     devDependencies:
       '@types/node':
         specifier: ^22.7.4
