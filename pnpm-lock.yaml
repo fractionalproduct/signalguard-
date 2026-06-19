@@ -103,9 +103,15 @@ importers:
       '@signalguard/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@signalguard/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@signalguard/market-data':
         specifier: workspace:*
         version: link:../../packages/market-data
+      '@signalguard/market-sessions':
+        specifier: workspace:*
+        version: link:../../packages/market-sessions
       '@signalguard/orders':
         specifier: workspace:*
         version: link:../../packages/orders
@@ -115,6 +121,9 @@ importers:
       '@signalguard/proposals':
         specifier: workspace:*
         version: link:../../packages/proposals
+      '@signalguard/risk-engine':
+        specifier: workspace:*
+        version: link:../../packages/risk-engine
       '@signalguard/watchlist-analysis':
         specifier: workspace:*
         version: link:../../packages/watchlist-analysis

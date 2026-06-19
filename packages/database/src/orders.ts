@@ -84,9 +84,13 @@ export interface ListOrdersOptions {
   proposalId?: string;
   /** Cap, clamped to [1, 200]. Default 50. */
   limit?: number;
+  /** Oldest-first (createdAt asc) instead of the default newest-first. The
+   * execution worker uses this to claim the longest-waiting AUTHORIZED order
+   * (FIFO) so no order starves behind newer ones. */
+  oldestFirst?: boolean;
 }
 
-/** Descending createdAt. */
+/** Newest-first by default; oldest-first when `oldestFirst` is set. */
 export function listOrders(
   db: PrismaClient,
   options: ListOrdersOptions = {},
@@ -97,7 +101,7 @@ export function listOrders(
       ...(options.status ? { status: options.status as PrismaOrderState } : {}),
       ...(options.proposalId ? { proposalId: options.proposalId } : {}),
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: options.oldestFirst ? "asc" : "desc" },
     take: limit,
   });
 }
@@ -139,15 +143,20 @@ export type TransitionOrderResult =
  * `conflict` rather than clobbering.
  *
  * `extraData` is folded into the SAME guarded write so a state-specific field
- * lands atomically with the status. The intended use is
- * AUTHORIZED -> RISK_BLOCKED carrying `riskBlockReason`; doing it as a second
- * write would race.
+ * lands atomically with the status. Intended uses: AUTHORIZED -> RISK_BLOCKED
+ * carrying `riskBlockReason`, and AUTHORIZED -> SUBMITTED carrying the
+ * broker-confirmed `brokerOrderId` + `quantity` (the broker is the source of
+ * truth for what is actually working). Doing these as a second write would race.
  */
 export async function transitionOrderState(
   db: PrismaClient,
   orderId: string,
   to: OrderState,
-  extraData: { riskBlockReason?: string; brokerOrderId?: string } = {},
+  extraData: {
+    riskBlockReason?: string;
+    brokerOrderId?: string;
+    quantity?: number;
+  } = {},
 ): Promise<TransitionOrderResult> {
   const current = await db.order.findUnique({
     where: { id: orderId },

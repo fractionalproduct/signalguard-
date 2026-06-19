@@ -39,6 +39,8 @@
     "lib/proposals-view.ts",
     "lib/proposals-view.test.ts",
     "lib/proposal-detail-view.ts",
-    "lib/proposal-detail-view.test.ts"
+    "lib/proposal-detail-view.test.ts",
+    "lib/execution-decision.ts",
+    "lib/execution-decision.test.ts"
   ]
 }
