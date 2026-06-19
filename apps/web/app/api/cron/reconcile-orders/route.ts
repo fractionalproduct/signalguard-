@@ -4,6 +4,7 @@ import { createPaperExecutionClientFromEnv } from "@signalguard/broker-adapters"
 import {
   getDb,
   listReconcilableOrders,
+  openPositionFromFilledEntry,
   recordFill,
   transitionOrderState,
 } from "@signalguard/database";
@@ -131,6 +132,16 @@ export async function GET(req: Request): Promise<Response> {
     await audit("order.reconciled", order, { action: "transition", to: decision.to });
     changed++;
     outcomes.push({ orderId: order.id, action: "transition", to: decision.to });
+
+    // M13: a FILLED entry order opens the held position (idempotent on the
+    // entry order). The protective OCO is then placed by the position-monitor
+    // cron. (Exit-leg fills reducing the position are slice 5.)
+    if (order.orderKind === "ENTRY" && decision.to === "FILLED") {
+      const opened = await openPositionFromFilledEntry(db, order.id);
+      if (opened.ok) {
+        await audit("position.opened", order, { positionId: opened.positionId });
+      }
+    }
   }
 
   return NextResponse.json({ ok: true, scanned: orders.length, reconciled: changed, outcomes });
