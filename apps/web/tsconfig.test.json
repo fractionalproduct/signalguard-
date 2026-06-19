@@ -41,6 +41,8 @@
     "lib/proposal-detail-view.ts",
     "lib/proposal-detail-view.test.ts",
     "lib/execution-decision.ts",
-    "lib/execution-decision.test.ts"
+    "lib/execution-decision.test.ts",
+    "lib/position-monitor-flag.ts",
+    "lib/position-monitor-flag.test.ts"
   ]
 }
