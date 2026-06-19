@@ -43,6 +43,9 @@
     "lib/execution-decision.ts",
     "lib/execution-decision.test.ts",
     "lib/position-monitor-flag.ts",
-    "lib/position-monitor-flag.test.ts"
+    "lib/position-monitor-flag.test.ts",
+    "lib/notifications-view.ts",
+    "lib/notifications-view.test.ts",
+    "lib/briefing-email.test.ts"
   ]
 }

@@ -9,12 +9,13 @@
     "typecheck": "tsc --noEmit",
     "lint": "echo \"(lint configured in Milestone 2)\"",
     "pretest": "tsc -p tsconfig.test.json",
-    "test": "node --test dist-test/lib/money.test.js dist-test/lib/portfolio-view.test.js dist-test/lib/signals-view.test.js dist-test/lib/congress-view.test.js dist-test/lib/telegram-channel.test.js dist-test/lib/research-view.test.js dist-test/lib/cron-auth.test.js dist-test/lib/research-symbol-view.test.js dist-test/lib/sparkline-view.test.js dist-test/lib/alerts-view.test.js dist-test/lib/email.test.js dist-test/lib/proposals-view.test.js dist-test/lib/proposal-detail-view.test.js dist-test/lib/execution-decision.test.js dist-test/lib/position-monitor-flag.test.js"
+    "test": "node --test dist-test/lib/money.test.js dist-test/lib/portfolio-view.test.js dist-test/lib/signals-view.test.js dist-test/lib/congress-view.test.js dist-test/lib/telegram-channel.test.js dist-test/lib/research-view.test.js dist-test/lib/cron-auth.test.js dist-test/lib/research-symbol-view.test.js dist-test/lib/sparkline-view.test.js dist-test/lib/alerts-view.test.js dist-test/lib/email.test.js dist-test/lib/proposals-view.test.js dist-test/lib/proposal-detail-view.test.js dist-test/lib/execution-decision.test.js dist-test/lib/position-monitor-flag.test.js dist-test/lib/notifications-view.test.js dist-test/lib/briefing-email.test.js"
   },
   "dependencies": {
     "@signalguard/alpaca-market-data": "workspace:*",
     "@signalguard/audit": "workspace:*",
     "@signalguard/auth": "workspace:*",
+    "@signalguard/briefings": "workspace:*",
     "@signalguard/broker-adapters": "workspace:*",
     "@signalguard/config": "workspace:*",
     "@signalguard/database": "workspace:*",
@@ -22,6 +23,7 @@
     "@signalguard/market-data": "workspace:*",
     "@signalguard/market-sessions": "workspace:*",
     "@signalguard/orders": "workspace:*",
+    "@signalguard/performance": "workspace:*",
     "@signalguard/position-sizing": "workspace:*",
     "@signalguard/proposals": "workspace:*",
     "@signalguard/risk-engine": "workspace:*",

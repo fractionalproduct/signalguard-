@@ -1,11 +1,13 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { logoutAction } from "../login/actions";
+import { NotificationBell } from "./NotificationBell";
 
 const navItems = [
   { href: "/home", label: "Home" },
   { href: "/signals", label: "Signals" },
   { href: "/alerts", label: "Alerts" },
+  { href: "/notifications", label: "Notifications" },
   { href: "/proposals", label: "Proposals" },
   { href: "/congress", label: "Congress" },
   { href: "/research", label: "Research" },
@@ -49,9 +51,7 @@ export function AppShell({
         </div>
 
         <div className="header-actions">
-          <button className="icon-button" type="button" aria-label="Notifications placeholder">
-            🔔
-          </button>
+          <NotificationBell />
           <span className="tooltip-wrap" title="Wired up in a later milestone">
             <button
               className="emergency-stop"

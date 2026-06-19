@@ -14,10 +14,12 @@
 import "server-only";
 import {
   buildAlertEmail,
+  buildBriefingEmail,
   type AlertEmailInput,
+  type BriefingEmailInput,
 } from "./email-template";
 
-export type { AlertEmailInput };
+export type { AlertEmailInput, BriefingEmailInput };
 
 export interface SendAlertEmailResult {
   sent: boolean;
@@ -48,6 +50,50 @@ export async function sendAlertEmail(
   const { Resend } = await import("resend");
   const client = new Resend(apiKey);
   const message = buildAlertEmail(input, {
+    baseUrl: process.env.APP_BASE_URL,
+  });
+  try {
+    const { data, error } = await client.emails.send({
+      from,
+      to,
+      subject: message.subject,
+      text: message.text,
+      html: message.html,
+    });
+    if (error) {
+      return { sent: false, reason: error.message };
+    }
+    return { sent: true, id: data?.id };
+  } catch (err) {
+    return {
+      sent: false,
+      reason: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
+ * Send the evening-briefing digest email via Resend. Same config-missing
+ * contract as sendAlertEmail: when RESEND_API_KEY / EMAIL_FROM / ALERT_EMAIL_TO
+ * are absent it returns { sent: false } rather than throwing, so the briefing
+ * cron can record the in-app notification and skip the email gracefully.
+ */
+export async function sendBriefingEmail(
+  input: BriefingEmailInput,
+): Promise<SendAlertEmailResult> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.EMAIL_FROM;
+  const to = process.env.ALERT_EMAIL_TO;
+  if (!apiKey || !from || !to) {
+    return {
+      sent: false,
+      reason:
+        "email not configured (RESEND_API_KEY / EMAIL_FROM / ALERT_EMAIL_TO missing)",
+    };
+  }
+  const { Resend } = await import("resend");
+  const client = new Resend(apiKey);
+  const message = buildBriefingEmail(input, {
     baseUrl: process.env.APP_BASE_URL,
   });
   try {
