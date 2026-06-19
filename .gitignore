@@ -57,3 +57,4 @@ apps/web/dist-test/
 
 # Vercel CLI project link
 .vercel
+.claude/worktrees/

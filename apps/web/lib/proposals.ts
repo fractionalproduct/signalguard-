@@ -5,7 +5,11 @@
  * states.
  */
 import "server-only";
-import { getDb, listProposals } from "@signalguard/database";
+import {
+  getDb,
+  listOrdersByProposalIds,
+  listProposals,
+} from "@signalguard/database";
 import { buildProposalsView, type ProposalsView } from "./proposals-view";
 
 export type ProposalsState =
@@ -15,9 +19,17 @@ export type ProposalsState =
 
 export async function loadProposalsState(): Promise<ProposalsState> {
   try {
-    const proposals = await listProposals(getDb(), { limit: 100 });
+    const db = getDb();
+    const proposals = await listProposals(db, { limit: 100 });
     if (proposals.length === 0) return { status: "empty" };
-    return { status: "ok", view: buildProposalsView(proposals) };
+    const orders = await listOrdersByProposalIds(
+      db,
+      proposals.map((p) => p.id),
+    );
+    return {
+      status: "ok",
+      view: buildProposalsView(proposals, new Date(), orders),
+    };
   } catch (err) {
     return {
       status: "error",

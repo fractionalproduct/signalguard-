@@ -102,6 +102,22 @@ export function listOrders(
   });
 }
 
+/**
+ * All orders for the given proposals, newest first. Used by the proposals list
+ * to reflect each APPROVED proposal's order state (and to gate re-authorization
+ * + withdrawal). Returns a flat list; callers pick the latest per proposal.
+ */
+export function listOrdersByProposalIds(
+  db: PrismaClient,
+  proposalIds: ReadonlyArray<string>,
+): Promise<Order[]> {
+  if (proposalIds.length === 0) return Promise.resolve([]);
+  return db.order.findMany({
+    where: { proposalId: { in: [...proposalIds] } },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 export type TransitionOrderResult =
   | { ok: true; from: OrderState; to: OrderState }
   | {

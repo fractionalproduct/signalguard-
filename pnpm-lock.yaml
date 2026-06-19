@@ -106,6 +106,9 @@ importers:
       '@signalguard/market-data':
         specifier: workspace:*
         version: link:../../packages/market-data
+      '@signalguard/orders':
+        specifier: workspace:*
+        version: link:../../packages/orders
       '@signalguard/position-sizing':
         specifier: workspace:*
         version: link:../../packages/position-sizing

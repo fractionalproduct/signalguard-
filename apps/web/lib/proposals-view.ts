@@ -43,6 +43,11 @@ export interface ProposalRow {
    * lifecycle allows cancelling pre-decision states too, but those use
    * Reject in the UI; withdrawal is the "pull back an approved idea" path. */
   withdrawable: boolean;
+  /** Latest order's state for this proposal, or null when none placed yet. */
+  orderState: string | null;
+  /** True when the owner may authorize+place: APPROVED, sized, no order yet,
+   * not past expiry. */
+  authorizable: boolean;
 }
 
 export interface ProposalsView {
@@ -50,18 +55,36 @@ export interface ProposalsView {
   totalProposals: number;
 }
 
+/** Minimal order shape the view needs, decoupled from the Prisma row. */
+export interface ProposalOrderRef {
+  proposalId: string;
+  status: string;
+}
+
 export function buildProposalsView(
   proposals: ReadonlyArray<TradeProposal>,
   now: Date = new Date(),
+  orders: ReadonlyArray<ProposalOrderRef> = [],
 ): ProposalsView {
   const nowMs = now.getTime();
+  // orders arrive newest-first; keep the first (latest) seen per proposal.
+  const latestOrder = new Map<string, string>();
+  for (const o of orders) {
+    if (!latestOrder.has(o.proposalId)) latestOrder.set(o.proposalId, o.status);
+  }
   return {
-    rows: proposals.map((p) => buildRow(p, nowMs)),
+    rows: proposals.map((p) =>
+      buildRow(p, nowMs, latestOrder.get(p.id) ?? null),
+    ),
     totalProposals: proposals.length,
   };
 }
 
-function buildRow(p: TradeProposal, nowMs: number): ProposalRow {
+function buildRow(
+  p: TradeProposal,
+  nowMs: number,
+  orderState: string | null,
+): ProposalRow {
   const expiresAt = p.expiresAt;
   const isExpired = expiresAt ? expiresAt.getTime() < nowMs : false;
   return {
@@ -87,6 +110,12 @@ function buildRow(p: TradeProposal, nowMs: number): ProposalRow {
     quantity: p.quantity,
     reducible: p.status === "APPROVED" && (p.quantity ?? 0) > 1,
     withdrawable: p.status === "APPROVED",
+    orderState,
+    authorizable:
+      p.status === "APPROVED" &&
+      (p.quantity ?? 0) >= 1 &&
+      !isExpired &&
+      orderState === null,
   };
 }
 

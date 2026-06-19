@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SELECTABLE_RISK_PROFILES } from "@signalguard/proposals";
 import {
   approveProposalAction,
+  authorizeProposalAction,
   cancelProposalAction,
   reduceProposalAction,
   rejectProposalAction,
@@ -84,6 +85,7 @@ function ProposalsTable({ rows }: { rows: ReadonlyArray<ProposalRow> }) {
           <th>Sample</th>
           <th>Status</th>
           <th>Qty</th>
+          <th>Order</th>
           <th>Expires</th>
           <th>Actions</th>
         </tr>
@@ -134,6 +136,15 @@ function ProposalsTable({ rows }: { rows: ReadonlyArray<ProposalRow> }) {
                 <span className="muted">—</span>
               ) : (
                 <span className="stat-value">{row.quantity}</span>
+              )}
+            </td>
+            <td>
+              {row.orderState === null ? (
+                <span className="muted">—</span>
+              ) : (
+                <span className="status-pill" aria-label={`Order ${row.orderState}`}>
+                  {row.orderState}
+                </span>
               )}
             </td>
             <td title={row.expiresAt ?? ""}>
@@ -208,11 +219,23 @@ function ProposalActions({ row }: { row: ProposalRow }) {
     );
   }
 
-  // APPROVED proposals can have their order quantity reduced (never increased)
-  // and can be withdrawn entirely (-> CANCELED).
-  if (row.reducible || row.withdrawable) {
+  // APPROVED proposals can be authorized+placed, have their order quantity
+  // reduced (never increased), and be withdrawn entirely (-> CANCELED).
+  if (row.authorizable || row.reducible || row.withdrawable) {
     return (
       <div className="action-buttons">
+        {row.authorizable && (
+          <form action={authorizeProposalAction}>
+            <input type="hidden" name="proposalId" value={row.id} />
+            <button
+              type="submit"
+              className="btn-approve"
+              aria-label={`Authorize and place ${row.symbol} order`}
+            >
+              Authorize &amp; place
+            </button>
+          </form>
+        )}
         {row.reducible && row.quantity !== null && (
           <form action={reduceProposalAction} className="reduce-form">
             <input type="hidden" name="proposalId" value={row.id} />
