@@ -47,6 +47,94 @@ export type CreateProtectiveExitsResult =
         | "would_oversell";
     };
 
+export type ApplyExitFillResult =
+  | {
+      ok: true;
+      filledDelta: number;
+      positionQuantity: number;
+      positionStatus: PositionStatus;
+    }
+  | { ok: false; reason: "order_not_found" | "not_an_exit" | "position_not_found" | "no_new_fill" };
+
+/**
+ * Apply a fill on a protective exit leg AND reduce the parent position in ONE
+ * transaction (M13 slice 5). This atomicity is the second half of the oversell
+ * invariant: the moment a leg sells N shares, the position must drop by N — any
+ * lag window (leg FILLED, position not yet reduced) is itself an oversell hole.
+ *
+ * `committed` is therefore REMAINING (unfilled) exposure, not ordered: we reduce
+ * the position by the NEWLY-filled delta (cumulative broker fill minus what we'd
+ * already recorded). Reaching 0 closes the position. The OCO sibling's
+ * broker-side cancellation is reconciled separately.
+ *
+ * Row-locks the position (serializing against createProtectiveExitOrders and
+ * other fills on the same position).
+ */
+export async function applyExitFill(
+  db: PrismaClient,
+  exitOrderId: string,
+  fill: { filledQuantity: number; filledAvgPriceCents: number; status?: OrderState },
+): Promise<ApplyExitFillResult> {
+  return db.$transaction(async (tx) => {
+    const exit = await tx.order.findUnique({
+      where: { id: exitOrderId },
+      select: {
+        parentPositionId: true,
+        orderKind: true,
+        filledQuantity: true,
+      },
+    });
+    if (!exit) return { ok: false, reason: "order_not_found" as const };
+    if (exit.orderKind === "ENTRY" || exit.parentPositionId === null) {
+      return { ok: false, reason: "not_an_exit" as const };
+    }
+
+    const filledDelta = fill.filledQuantity - exit.filledQuantity;
+
+    // Lock the position before reading/writing it.
+    await tx.$queryRaw`SELECT id FROM "Position" WHERE id = ${exit.parentPositionId} FOR UPDATE`;
+    const pos = await tx.position.findUnique({
+      where: { id: exit.parentPositionId },
+    });
+    if (!pos) return { ok: false, reason: "position_not_found" as const };
+
+    // Always persist the leg's latest fill figures + (optional) status.
+    await tx.order.update({
+      where: { id: exitOrderId },
+      data: {
+        filledQuantity: fill.filledQuantity,
+        filledAvgPriceCents: fill.filledAvgPriceCents,
+        ...(fill.status ? { status: fill.status } : {}),
+      },
+    });
+
+    if (filledDelta <= 0) {
+      // Status-only / no-new-shares update — leg recorded, position unchanged.
+      return { ok: false, reason: "no_new_fill" as const };
+    }
+
+    const newQuantity = Math.max(0, pos.quantity - filledDelta);
+    const newStatus: PositionStatus =
+      newQuantity === 0 ? "CLOSED" : pos.status === "OPEN" ? "CLOSING" : (pos.status as PositionStatus);
+
+    await tx.position.update({
+      where: { id: pos.id },
+      data: {
+        quantity: newQuantity,
+        status: newStatus,
+        ...(newQuantity === 0 ? { closedAt: new Date() } : {}),
+      },
+    });
+
+    return {
+      ok: true as const,
+      filledDelta,
+      positionQuantity: newQuantity,
+      positionStatus: newStatus,
+    };
+  });
+}
+
 export async function createProtectiveExitOrders(
   db: PrismaClient,
   positionId: string,

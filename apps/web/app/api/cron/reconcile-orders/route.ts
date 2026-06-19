@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { recordAuditEvent } from "@signalguard/audit";
 import { createPaperExecutionClientFromEnv } from "@signalguard/broker-adapters";
 import {
+  applyExitFill,
   getDb,
   listReconcilableOrders,
   openPositionFromFilledEntry,
@@ -106,7 +107,9 @@ export async function GET(req: Request): Promise<Response> {
     }
 
     if (decision.action === "fill") {
-      await recordFill(db, order.id, {
+      // Exit-leg fills reduce the parent position atomically (slice 5); entry
+      // fills just record on the order.
+      await recordFillRouted(db, order, {
         filledQuantity: decision.filledQuantity,
         filledAvgPriceCents: decision.filledAvgPriceCents,
       });
@@ -121,7 +124,7 @@ export async function GET(req: Request): Promise<Response> {
 
     // transition (optionally into a fill state with fill data)
     if (decision.filledAvgPriceCents !== undefined && decision.filledQuantity !== undefined) {
-      await recordFill(db, order.id, {
+      await recordFillRouted(db, order, {
         filledQuantity: decision.filledQuantity,
         filledAvgPriceCents: decision.filledAvgPriceCents,
         status: decision.to,
@@ -145,6 +148,22 @@ export async function GET(req: Request): Promise<Response> {
   }
 
   return NextResponse.json({ ok: true, scanned: orders.length, reconciled: changed, outcomes });
+}
+
+/**
+ * Record a fill, routing exit-leg fills through `applyExitFill` so the parent
+ * position is reduced ATOMICALLY in the same transaction (no oversell lag).
+ * Entry fills just record on the order; the position opens via the FILLED hook.
+ */
+function recordFillRouted(
+  db: ReturnType<typeof getDb>,
+  order: { id: string; orderKind: string },
+  fill: Parameters<typeof recordFill>[2],
+): Promise<unknown> {
+  if (order.orderKind === "ENTRY") {
+    return recordFill(db, order.id, fill);
+  }
+  return applyExitFill(db, order.id, fill);
 }
 
 function audit(

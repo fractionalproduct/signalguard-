@@ -65,7 +65,9 @@ export {
 } from "./positions.js";
 export {
   createProtectiveExitOrders,
+  applyExitFill,
   type CreateProtectiveExitsResult,
+  type ApplyExitFillResult,
 } from "./exits.js";
 export {
   createProposal,
