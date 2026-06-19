@@ -1,5 +1,5 @@
 {
-  "name": "@signalguard/broker-adapters",
+  "name": "@signalguard/orders",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,7 +15,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"(lint configured in Milestone 2)\"",
-    "test": "pnpm run build && node --test dist/alpaca.test.js dist/alpaca-write.test.js dist/in-memory-execution.test.js"
+    "test": "pnpm run build && node --test dist/*.test.js"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",

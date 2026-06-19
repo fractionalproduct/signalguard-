@@ -11,6 +11,14 @@
     {
       "path": "/api/cron/proposal-expiry",
       "schedule": "15 * * * *"
+    },
+    {
+      "path": "/api/cron/execute-orders",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-orders",
+      "schedule": "* * * * *"
     }
   ]
 }

@@ -2,7 +2,9 @@ import Link from "next/link";
 import { SELECTABLE_RISK_PROFILES } from "@signalguard/proposals";
 import {
   approveProposalAction,
+  authorizeProposalAction,
   cancelProposalAction,
+  generateProposalsAction,
   reduceProposalAction,
   rejectProposalAction,
   setRiskProfileAction,
@@ -23,8 +25,11 @@ export function ProposalsList({ state }: { state: ProposalsState }) {
     return <ErrorCard message={state.message} />;
   return (
     <section className="page-card">
-      <p className="eyebrow">Beginner view · read-only · PAPER TRADING</p>
-      <h1>Proposals</h1>
+      <p className="eyebrow">Beginner view · PAPER TRADING</p>
+      <div className="page-header-row">
+        <h1>Proposals</h1>
+        <GenerateButton />
+      </div>
       <p className="lead">
         Candidate paper-trade ideas the proposal layer produced from your
         watchlist snapshots. Nothing here ever reaches the broker without
@@ -42,15 +47,27 @@ export function ProposalsList({ state }: { state: ProposalsState }) {
 function EmptyCard() {
   return (
     <section className="page-card">
-      <p className="eyebrow">Beginner view · read-only · PAPER TRADING</p>
-      <h1>Proposals</h1>
+      <p className="eyebrow">Beginner view · PAPER TRADING</p>
+      <div className="page-header-row">
+        <h1>Proposals</h1>
+        <GenerateButton />
+      </div>
       <div className="empty-state" role="status">
-        No trade proposals yet. The proposal generator (a future slice)
-        will read from the latest watchlist snapshots and write candidates
-        here. Until then, this view stays empty — the schema is in place
-        and the page is ready.
+        No trade proposals yet. Click <strong>Generate proposals</strong> to
+        scan your watchlist (WATCHLIST_SYMBOLS) for candidate paper trades.
+        Requires Alpaca market-data access configured for this environment.
       </div>
     </section>
+  );
+}
+
+function GenerateButton() {
+  return (
+    <form action={generateProposalsAction}>
+      <button type="submit" className="btn-primary" aria-label="Generate proposals from the watchlist">
+        Generate proposals
+      </button>
+    </form>
   );
 }
 
@@ -84,6 +101,7 @@ function ProposalsTable({ rows }: { rows: ReadonlyArray<ProposalRow> }) {
           <th>Sample</th>
           <th>Status</th>
           <th>Qty</th>
+          <th>Order</th>
           <th>Expires</th>
           <th>Actions</th>
         </tr>
@@ -134,6 +152,15 @@ function ProposalsTable({ rows }: { rows: ReadonlyArray<ProposalRow> }) {
                 <span className="muted">—</span>
               ) : (
                 <span className="stat-value">{row.quantity}</span>
+              )}
+            </td>
+            <td>
+              {row.orderState === null ? (
+                <span className="muted">—</span>
+              ) : (
+                <span className="status-pill" aria-label={`Order ${row.orderState}`}>
+                  {row.orderState}
+                </span>
               )}
             </td>
             <td title={row.expiresAt ?? ""}>
@@ -208,11 +235,23 @@ function ProposalActions({ row }: { row: ProposalRow }) {
     );
   }
 
-  // APPROVED proposals can have their order quantity reduced (never increased)
-  // and can be withdrawn entirely (-> CANCELED).
-  if (row.reducible || row.withdrawable) {
+  // APPROVED proposals can be authorized+placed, have their order quantity
+  // reduced (never increased), and be withdrawn entirely (-> CANCELED).
+  if (row.authorizable || row.reducible || row.withdrawable) {
     return (
       <div className="action-buttons">
+        {row.authorizable && (
+          <form action={authorizeProposalAction}>
+            <input type="hidden" name="proposalId" value={row.id} />
+            <button
+              type="submit"
+              className="btn-approve"
+              aria-label={`Authorize and place ${row.symbol} order`}
+            >
+              Authorize &amp; place
+            </button>
+          </form>
+        )}
         {row.reducible && row.quantity !== null && (
           <form action={reduceProposalAction} className="reduce-form">
             <input type="hidden" name="proposalId" value={row.id} />

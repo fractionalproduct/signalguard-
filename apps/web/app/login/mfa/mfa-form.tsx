@@ -30,7 +30,7 @@ export function MfaForm() {
           autoFocus
         />
       </label>
-      {state.error ? (
+      {state?.error ? (
         <p className="form-error" role="alert">
           {state.error}
         </p>

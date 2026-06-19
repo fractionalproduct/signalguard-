@@ -22,6 +22,7 @@ export { PrismaClient };
 export type {
   AuditEvent,
   ManipulationAlert,
+  Order,
   Owner,
   TechnicalAnalysisSnapshot,
   TradeProposal,
@@ -43,6 +44,12 @@ export {
 } from "./manipulation-alerts.js";
 export { acknowledgeAlert } from "./alerts-acknowledge.js";
 export {
+  getEmergencyStopState,
+  isEmergencyStopActive,
+  setEmergencyStop,
+  type EmergencyStopState,
+} from "./emergency-stop.js";
+export {
   createProposal,
   getProposalById,
   listAuditEventsForProposal,
@@ -62,3 +69,19 @@ export {
   type SetNotesResult,
   type ReduceProposalResult,
 } from "./proposals.js";
+export {
+  createOrder,
+  getOrderById,
+  listOrders,
+  listOrdersByProposalIds,
+  listReconcilableOrders,
+  transitionOrderState,
+  recordFill,
+  setBrokerOrderId,
+  type CreateOrderInput,
+  type CreateOrderResult,
+  type ListOrdersOptions,
+  type TransitionOrderResult,
+  type RecordFillResult,
+  type SetBrokerOrderIdResult,
+} from "./orders.js";

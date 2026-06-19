@@ -31,6 +31,18 @@ export function toCents(value: string | number | null | undefined): Cents {
   return Number.isFinite(n) ? Math.round(n * 100) : 0;
 }
 
+/**
+ * Format integer cents as a fixed 2-decimal dollar string (e.g. 100050 →
+ * "1000.50") for the broker wire. Avoids float drift by integer-dividing first.
+ */
+export function fromCents(cents: Cents): string {
+  const sign = cents < 0 ? "-" : "";
+  const abs = Math.abs(Math.trunc(cents));
+  const dollars = Math.trunc(abs / 100);
+  const remainder = abs % 100;
+  return `${sign}${dollars}.${String(remainder).padStart(2, "0")}`;
+}
+
 function nullableCents(value: string | number | null | undefined): Cents | null {
   if (value === null || value === undefined || value === "") return null;
   return toCents(value);

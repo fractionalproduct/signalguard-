@@ -153,9 +153,9 @@ body {
 
 .shell-body {
   align-items: stretch;
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 28px 20px;
+  max-width: none;
+  margin: 0;
+  padding: 28px 24px;
   gap: 24px;
 }
 
@@ -196,7 +196,10 @@ body {
   border-radius: 28px;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025));
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.25);
-  padding: 36px;
+  padding: 28px;
+  /* Wide tables stay INSIDE the card — scroll within it rather than spilling
+     the last column (Reduce/Withdraw) out past the right edge. */
+  overflow-x: auto;
 }
 
 .eyebrow {
@@ -436,6 +439,36 @@ h2 {
   letter-spacing: 0.04em;
   color: var(--muted);
 }
+/* Readable, high-contrast links in tables (symbols, created-date). */
+.data-table a {
+  color: #e6edf8;
+  text-decoration: none;
+}
+.data-table a:hover,
+.data-table a:focus-visible {
+  color: #fff;
+  text-decoration: underline;
+}
+.data-table a strong { color: #9cc4ff; }
+
+/* Route loading state */
+.loading-state {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+.spinner {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 3px solid rgba(154, 163, 178, 0.25);
+  border-top-color: #f5a623;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 .positive { color: #5ad19a; }
 .negative { color: #ff8a8a; }
 .flat { color: var(--muted); }
@@ -543,6 +576,13 @@ h2 {
 .ack-button:hover { background: rgba(255, 255, 255, 0.12); }
 
 /* --- Proposal approve / reject actions ------------------------------------ */
+.page-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
 .action-buttons { display: flex; gap: 6px; }
 .action-buttons form { margin: 0; padding: 0; }
 .btn-approve,

@@ -103,15 +103,27 @@ importers:
       '@signalguard/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@signalguard/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@signalguard/market-data':
         specifier: workspace:*
         version: link:../../packages/market-data
+      '@signalguard/market-sessions':
+        specifier: workspace:*
+        version: link:../../packages/market-sessions
+      '@signalguard/orders':
+        specifier: workspace:*
+        version: link:../../packages/orders
       '@signalguard/position-sizing':
         specifier: workspace:*
         version: link:../../packages/position-sizing
       '@signalguard/proposals':
         specifier: workspace:*
         version: link:../../packages/proposals
+      '@signalguard/risk-engine':
+        specifier: workspace:*
+        version: link:../../packages/risk-engine
       '@signalguard/watchlist-analysis':
         specifier: workspace:*
         version: link:../../packages/watchlist-analysis
@@ -315,6 +327,9 @@ importers:
       '@signalguard/auth':
         specifier: workspace:*
         version: link:../auth
+      '@signalguard/orders':
+        specifier: workspace:*
+        version: link:../orders
       '@signalguard/proposals':
         specifier: workspace:*
         version: link:../proposals
@@ -422,6 +437,15 @@ importers:
 
   packages/notifications:
     devDependencies:
+      typescript:
+        specifier: ^5.6.2
+        version: 5.9.3
+
+  packages/orders:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.7.4
+        version: 22.19.21
       typescript:
         specifier: ^5.6.2
         version: 5.9.3

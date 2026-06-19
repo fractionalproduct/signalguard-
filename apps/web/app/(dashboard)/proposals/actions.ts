@@ -6,16 +6,29 @@ import { recordAuditEvent } from "@signalguard/audit";
 import {
   approveProposal,
   cancelProposal,
-  createProposal,
+  createOrder,
   getDb,
   getProposalById,
   listLatestWatchlistSnapshots,
+  listOrders,
   reduceProposalQuantity,
   rejectProposal,
   setProposalNotes,
   setProposalRiskProfile,
+  transitionOrderState,
+  createProposal,
 } from "@signalguard/database";
+import { isTerminal as isOrderTerminal, type OrderState } from "@signalguard/orders";
 import { generateProposalForSymbol } from "@signalguard/proposals";
+
+/** Deterministic broker idempotency key for a proposal's entry order. One
+ * proposal yields at most one entry order, so deriving the key from the
+ * proposal id makes authorization idempotent: a double-click reuses the key,
+ * createOrder reports `duplicate`, and no second order (or broker submission)
+ * is ever created. */
+function clientOrderIdFor(proposalId: string): string {
+  return `sg-${proposalId}`;
+}
 import { sizeProposalForApproval } from "../../../lib/proposal-sizing";
 import { getCurrentOwner } from "../../../lib/session";
 
@@ -217,6 +230,82 @@ export async function setNotesAction(formData: FormData): Promise<void> {
   revalidatePath("/proposals");
 }
 
+/**
+ * Form action: owner authorizes an APPROVED proposal and places the paper
+ * order — the deliberate SECOND gate after approval (§2: a broker command is a
+ * separate act with its own pre-checks). This creates the immutable order
+ * command at PENDING_AUTHORIZATION, mints the idempotency key, and transitions
+ * it to AUTHORIZED. It does NOT submit to the broker — the execute-orders cron
+ * re-sizes, re-runs the risk engine, and submits.
+ *
+ * Idempotent: the deterministic clientOrderId means a re-authorize finds the
+ * existing order (createOrder -> duplicate) and is recorded as a no-op, never a
+ * second order. Refuses anything that isn't an APPROVED, sized proposal.
+ */
+export async function authorizeProposalAction(
+  formData: FormData,
+): Promise<void> {
+  const ctx = await requireOwnerAndProposalId(formData);
+  if (!ctx) return;
+  const db = getDb();
+
+  const audit = (metadata: Record<string, unknown>) =>
+    recordAuditEvent({
+      type: "order.authorized",
+      source: "web",
+      ownerId: ctx.ownerId,
+      metadata: { proposalId: ctx.proposalId, ...metadata },
+    });
+
+  const proposal = await getProposalById(db, ctx.proposalId);
+  if (!proposal) {
+    await audit({ outcome: "refused", reason: "not_found" });
+    revalidatePath("/proposals");
+    return;
+  }
+  if (proposal.status !== "APPROVED") {
+    await audit({ outcome: "refused", reason: "not_approved", symbol: proposal.symbol });
+    revalidatePath("/proposals");
+    return;
+  }
+  if (proposal.quantity === null || proposal.quantity < 1) {
+    await audit({ outcome: "refused", reason: "not_sized", symbol: proposal.symbol });
+    revalidatePath("/proposals");
+    return;
+  }
+
+  const clientOrderId = clientOrderIdFor(ctx.proposalId);
+  const created = await createOrder(db, {
+    proposalId: ctx.proposalId,
+    symbol: proposal.symbol,
+    quantity: proposal.quantity,
+    entryPriceCents: proposal.entryCents,
+    stopPriceCents: proposal.stopCents,
+    timeInForce: "DAY",
+    clientOrderId,
+  });
+  if (!created.ok) {
+    // duplicate => already authorized (idempotent re-click). No second order.
+    await audit({ outcome: "noop", reason: "already_authorized", symbol: proposal.symbol });
+    revalidatePath("/proposals");
+    return;
+  }
+
+  const authorized = await transitionOrderState(db, created.id, "AUTHORIZED");
+  await audit(
+    authorized.ok
+      ? {
+          outcome: "authorized",
+          symbol: proposal.symbol,
+          orderId: created.id,
+          clientOrderId,
+          quantity: proposal.quantity,
+        }
+      : { outcome: "refused", reason: authorized.reason, orderId: created.id, symbol: proposal.symbol },
+  );
+  revalidatePath("/proposals");
+}
+
 /** Form action: owner rejects a proposal. */
 export async function rejectProposalAction(formData: FormData): Promise<void> {
   const ctx = await requireOwnerAndProposalId(formData);
@@ -235,16 +324,39 @@ export async function rejectProposalAction(formData: FormData): Promise<void> {
 }
 
 /**
- * Form action: owner withdraws a proposal (-> CANCELED). The DB guard refuses
- * withdrawal of an already-terminal proposal. M11 submits no orders, so this is
- * safe; once M12 exists it must additionally check live order state before
- * honoring a withdrawal of an APPROVED proposal.
+ * Form action: owner withdraws a proposal (-> CANCELED).
+ *
+ * Live-order guard (the M11 follow-up, now concrete): if the proposal has any
+ * NON-terminal order, withdrawing the proposal is refused — a live paper order
+ * must be dealt with at the order/broker layer first, never silently orphaned
+ * by cancelling its parent proposal. Only once every order for the proposal is
+ * terminal (or none exists) does the proposal-status guard run.
  */
 export async function cancelProposalAction(formData: FormData): Promise<void> {
   const ctx = await requireOwnerAndProposalId(formData);
   if (!ctx) return;
+  const db = getDb();
 
-  const result = await cancelProposal(getDb(), ctx.proposalId);
+  const orders = await listOrders(db, { proposalId: ctx.proposalId });
+  const liveOrder = orders.find((o) => !isOrderTerminal(o.status as OrderState));
+  if (liveOrder) {
+    await recordAuditEvent({
+      type: "proposal.canceled",
+      source: "web",
+      ownerId: ctx.ownerId,
+      metadata: {
+        proposalId: ctx.proposalId,
+        outcome: "refused",
+        reason: "has_live_order",
+        orderId: liveOrder.id,
+        orderStatus: liveOrder.status,
+      },
+    });
+    revalidatePath("/proposals");
+    return;
+  }
+
+  const result = await cancelProposal(db, ctx.proposalId);
   await recordAuditEvent({
     type: "proposal.canceled",
     source: "web",

@@ -169,6 +169,44 @@ test("DRAFT (unsized) is not reducible and has null quantity", () => {
   assert.equal(view.rows[0]?.reducible, false);
 });
 
+test("APPROVED + sized + no order is authorizable; order state null", () => {
+  const view = buildProposalsView(
+    [proposal({ status: "APPROVED", quantity: 10 })],
+    NOW,
+  );
+  assert.equal(view.rows[0]?.authorizable, true);
+  assert.equal(view.rows[0]?.orderState, null);
+});
+
+test("APPROVED with an existing order is NOT authorizable; order state shown", () => {
+  const view = buildProposalsView(
+    [proposal({ id: "prop_1", status: "APPROVED", quantity: 10 })],
+    NOW,
+    [{ proposalId: "prop_1", status: "AUTHORIZED" }],
+  );
+  assert.equal(view.rows[0]?.authorizable, false);
+  assert.equal(view.rows[0]?.orderState, "AUTHORIZED");
+});
+
+test("latest order wins when a proposal has multiple (orders are newest-first)", () => {
+  const view = buildProposalsView(
+    [proposal({ id: "prop_1", status: "APPROVED", quantity: 10 })],
+    NOW,
+    [
+      { proposalId: "prop_1", status: "SUBMITTED" },
+      { proposalId: "prop_1", status: "AUTHORIZED" },
+    ],
+  );
+  assert.equal(view.rows[0]?.orderState, "SUBMITTED");
+});
+
+test("non-APPROVED proposals are never authorizable", () => {
+  for (const status of ["DRAFT", "REJECTED", "EXPIRED", "CANCELED"] as const) {
+    const view = buildProposalsView([proposal({ status })], NOW);
+    assert.equal(view.rows[0]?.authorizable, false, `${status}`);
+  }
+});
+
 test("past-expiry DRAFT not yet swept is NOT actionable", () => {
   const view = buildProposalsView(
     [
