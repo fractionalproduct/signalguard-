@@ -58,14 +58,18 @@ test("REJECTED (broker) is reachable ONLY from broker-touching states", () => {
   }
 });
 
-test("SUBMITTED resolves to ACCEPTED / REJECTED / CANCELED / UNKNOWN", () => {
+test("SUBMITTED can be acknowledged, filled, or closed (broker may jump ahead)", () => {
   assert.equal(canTransition("SUBMITTED", "ACCEPTED"), true);
   assert.equal(canTransition("SUBMITTED", "REJECTED"), true);
   assert.equal(canTransition("SUBMITTED", "CANCELED"), true);
   assert.equal(canTransition("SUBMITTED", "UNKNOWN"), true);
-  // A bare SUBMITTED has not filled yet.
-  assert.equal(canTransition("SUBMITTED", "PARTIALLY_FILLED"), false);
-  assert.equal(canTransition("SUBMITTED", "FILLED"), false);
+  // Reconciliation may first observe an already-filled/expired order, so
+  // SUBMITTED -> fill/expire is legal (no forced walk through ACCEPTED).
+  assert.equal(canTransition("SUBMITTED", "PARTIALLY_FILLED"), true);
+  assert.equal(canTransition("SUBMITTED", "FILLED"), true);
+  assert.equal(canTransition("SUBMITTED", "EXPIRED"), true);
+  // ...but never back to a pre-submit state.
+  assert.equal(canTransition("SUBMITTED", "AUTHORIZED"), false);
 });
 
 test("ACCEPTED can partially fill, fill, cancel, reject, expire, or go unknown", () => {

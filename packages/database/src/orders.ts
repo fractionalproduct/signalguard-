@@ -122,6 +122,29 @@ export function listOrdersByProposalIds(
   });
 }
 
+/**
+ * Orders the reconciler should sync against the broker, oldest-first: the
+ * broker-touching live states, UNKNOWN (to resolve), and AUTHORIZED (to recover
+ * a submit whose state write was lost to a crash). Terminal orders are skipped.
+ */
+export function listReconcilableOrders(
+  db: PrismaClient,
+  limit = 25,
+): Promise<Order[]> {
+  const states: PrismaOrderState[] = [
+    "AUTHORIZED",
+    "SUBMITTED",
+    "ACCEPTED",
+    "PARTIALLY_FILLED",
+    "UNKNOWN",
+  ];
+  return db.order.findMany({
+    where: { status: { in: states } },
+    orderBy: { createdAt: "asc" },
+    take: Math.min(Math.max(limit, 1), 100),
+  });
+}
+
 export type TransitionOrderResult =
   | { ok: true; from: OrderState; to: OrderState }
   | {

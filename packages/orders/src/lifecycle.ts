@@ -68,7 +68,19 @@ export const ORDER_STATES: readonly OrderState[] = [
 const ALLOWED_TRANSITIONS: Record<OrderState, readonly OrderState[]> = {
   PENDING_AUTHORIZATION: ["AUTHORIZED", "CANCELED"],
   AUTHORIZED: ["SUBMITTED", "RISK_BLOCKED", "CANCELED", "EXPIRED"],
-  SUBMITTED: ["ACCEPTED", "REJECTED", "CANCELED", "UNKNOWN"],
+  // A synchronously-submitted order can already be acknowledged, filled, or
+  // closed by the time reconciliation reads the broker — so SUBMITTED can move
+  // straight to a fill/closed state, not only to ACCEPTED. (REJECTED stays
+  // reachable here: still a broker-touching state.)
+  SUBMITTED: [
+    "ACCEPTED",
+    "PARTIALLY_FILLED",
+    "FILLED",
+    "REJECTED",
+    "CANCELED",
+    "EXPIRED",
+    "UNKNOWN",
+  ],
   ACCEPTED: [
     "PARTIALLY_FILLED",
     "FILLED",

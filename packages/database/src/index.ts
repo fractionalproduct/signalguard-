@@ -74,6 +74,7 @@ export {
   getOrderById,
   listOrders,
   listOrdersByProposalIds,
+  listReconcilableOrders,
   transitionOrderState,
   recordFill,
   setBrokerOrderId,
