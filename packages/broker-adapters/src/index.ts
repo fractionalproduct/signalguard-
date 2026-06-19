@@ -5,6 +5,8 @@ export type {
   BrokerReadClient,
   BrokerWriteClient,
   SubmitOrderInput,
+  SubmitOcoExitInput,
+  OcoExitResult,
   GetOrdersOptions,
   Cents,
 } from "./types.js";

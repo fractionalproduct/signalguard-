@@ -330,6 +330,9 @@ importers:
       '@signalguard/orders':
         specifier: workspace:*
         version: link:../orders
+      '@signalguard/positions':
+        specifier: workspace:*
+        version: link:../positions
       '@signalguard/proposals':
         specifier: workspace:*
         version: link:../proposals
@@ -457,6 +460,15 @@ importers:
         version: 5.9.3
 
   packages/position-sizing:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.7.4
+        version: 22.19.21
+      typescript:
+        specifier: ^5.6.2
+        version: 5.9.3
+
+  packages/positions:
     devDependencies:
       '@types/node':
         specifier: ^22.7.4

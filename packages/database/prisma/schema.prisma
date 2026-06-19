@@ -418,14 +418,29 @@ enum OrderState {
 /// and the reconciliation job. PAPER ONLY (AGENTS.md §2) — long-only, side is
 /// always "BUY", money is integer cents, and no field encodes anything that
 /// could be interpreted as a live trade.
+enum OrderKind {
+  ENTRY
+  STOP
+  TARGET
+  TIME_EXIT
+}
+
 model Order {
   id                  String        @id @default(cuid())
   proposalId          String
   proposal            TradeProposal @relation(fields: [proposalId], references: [id])
   symbol              String
-  /// Long-only (AGENTS.md §2): always "BUY". String (not an enum) because there
-  /// is exactly one legal value and no other side will ever be added.
+  /// "BUY" for an entry; "SELL" for a position-REDUCING exit (M13). Still
+  /// long-only (AGENTS.md §2): a SELL only ever reduces a held long and can
+  /// never exceed it (the oversell invariant) — it is never a short entry.
   side                String        @default("BUY")
+  /// ENTRY (the M12 buy) or an exit leg: STOP / TARGET / TIME_EXIT (M13).
+  orderKind           OrderKind     @default(ENTRY)
+  /// For exit orders: the Position being reduced (FK-style string). Null for entries.
+  parentPositionId    String?
+  /// Stop+target legs submitted as a broker OCO share this id, so the oversell
+  /// guard counts the pair ONCE. Null for entries and standalone exits.
+  ocoGroupId          String?
   quantity            Int
   entryPriceCents     Int
   stopPriceCents      Int?
@@ -448,4 +463,37 @@ model Order {
 
   @@index([status, createdAt(sort: Desc)])
   @@index([proposalId])
+  @@index([parentPositionId])
+}
+
+enum PositionStatus {
+  OPEN
+  CLOSING
+  CLOSED
+}
+
+/// A held LONG paper position, opened by a filled entry order (M13). PAPER ONLY,
+/// long-only. `quantity` is the live source of truth that protective exits are
+/// sized against (it shrinks as exits fill) — never sell more than this across
+/// all exit orders (the oversell invariant). Realized P&L is M14.
+model Position {
+  id                 String         @id @default(cuid())
+  symbol             String
+  /// Net shares currently held. Shrinks as exit orders fill; 0 => CLOSED.
+  quantity           Int
+  avgEntryPriceCents Int
+  /// The filled entry order that opened this position (FK-style string, mirrors
+  /// TradeProposal.snapshotId). Unique: one position per entry order.
+  entryOrderId       String         @unique
+  /// Protective levels carried from the proposal, used to place the OCO exits.
+  stopCents          Int
+  targetCents        Int
+  status             PositionStatus @default(OPEN)
+  openedAt           DateTime       @default(now())
+  closedAt           DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@index([status])
+  @@index([symbol])
 }

@@ -2,6 +2,8 @@ import { fromCents, toCents } from "./alpaca.js";
 import type {
   BrokerOrder,
   BrokerWriteClient,
+  OcoExitResult,
+  SubmitOcoExitInput,
   SubmitOrderInput,
 } from "./types.js";
 
@@ -177,6 +179,44 @@ export class AlpacaPaperExecutionClient implements BrokerWriteClient {
       }
       throw err;
     }
+  }
+
+  /**
+   * Submit a protective OCO exit (stop + take-profit SELL) on a held long via
+   * Alpaca `order_class: "oco"`. The broker links the legs one-cancels-other.
+   *
+   * NOTE: Alpaca's OCO leg/response wire format is unverified against a live
+   * paper account here — confirm the `legs` mapping (which leg is the limit vs
+   * the stop) and per-leg idempotency in the M13 smoke-test before relying on it.
+   */
+  async submitOcoExit(input: SubmitOcoExitInput): Promise<OcoExitResult> {
+    const payload: Record<string, unknown> = {
+      symbol: input.symbol,
+      qty: String(input.quantity),
+      side: "sell",
+      type: "limit",
+      time_in_force: input.timeInForce.toLowerCase(),
+      order_class: "oco",
+      client_order_id: input.stopClientOrderId,
+      take_profit: { limit_price: fromCents(input.targetLimitPriceCents) },
+      stop_loss: { stop_price: fromCents(input.stopPriceCents) },
+    };
+    const { body } = await this.request<Record<string, unknown>>(
+      "POST",
+      "/v2/orders",
+      payload,
+    );
+    const parentBrokerOrderId = String(body.id ?? "");
+    const legs = Array.isArray(body.legs)
+      ? (body.legs as Array<Record<string, unknown>>)
+      : [];
+    const target = legs
+      .map(mapOrder)
+      .find((o) => o.type === "limit") ?? mapOrder(body);
+    const stop = legs
+      .map(mapOrder)
+      .find((o) => o.type.startsWith("stop")) ?? target;
+    return { parentBrokerOrderId, target, stop };
   }
 
   async getOrderByClientId(clientOrderId: string): Promise<BrokerOrder | null> {
