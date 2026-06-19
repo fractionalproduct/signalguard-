@@ -22,6 +22,7 @@ export { PrismaClient };
 export type {
   AuditEvent,
   ManipulationAlert,
+  Order,
   Owner,
   TechnicalAnalysisSnapshot,
   TradeProposal,
@@ -62,3 +63,17 @@ export {
   type SetNotesResult,
   type ReduceProposalResult,
 } from "./proposals.js";
+export {
+  createOrder,
+  getOrderById,
+  listOrders,
+  transitionOrderState,
+  recordFill,
+  setBrokerOrderId,
+  type CreateOrderInput,
+  type CreateOrderResult,
+  type ListOrdersOptions,
+  type TransitionOrderResult,
+  type RecordFillResult,
+  type SetBrokerOrderIdResult,
+} from "./orders.js";

@@ -374,6 +374,65 @@ model TradeProposal {
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 
+  orders            Order[]
+
   @@index([symbol, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
+}
+
+/// M12 paper order lifecycle state. Mirrors OrderState in @signalguard/orders —
+/// keep the two in sync. PAPER ONLY (AGENTS.md §2). RISK_BLOCKED means OUR
+/// deterministic risk engine blocked the order at authorization and it NEVER
+/// reached the broker; REJECTED means the BROKER rejected an order we actually
+/// submitted. UNKNOWN absorbs broker ambiguity and is resolved by reconciliation
+/// querying the broker — never by resubmitting (AGENTS.md §2).
+enum OrderState {
+  PENDING_AUTHORIZATION
+  AUTHORIZED
+  SUBMITTED
+  ACCEPTED
+  PARTIALLY_FILLED
+  FILLED
+  CANCELED
+  REJECTED
+  EXPIRED
+  RISK_BLOCKED
+  UNKNOWN
+}
+
+/// M12 paper order. Created at authorization time from an APPROVED TradeProposal
+/// and driven through the OrderState machine by the restricted execution worker
+/// and the reconciliation job. PAPER ONLY (AGENTS.md §2) — long-only, side is
+/// always "BUY", money is integer cents, and no field encodes anything that
+/// could be interpreted as a live trade.
+model Order {
+  id                  String        @id @default(cuid())
+  proposalId          String
+  proposal            TradeProposal @relation(fields: [proposalId], references: [id])
+  symbol              String
+  /// Long-only (AGENTS.md §2): always "BUY". String (not an enum) because there
+  /// is exactly one legal value and no other side will ever be added.
+  side                String        @default("BUY")
+  quantity            Int
+  entryPriceCents     Int
+  stopPriceCents      Int?
+  timeInForce         String        @default("DAY")
+  status              OrderState    @default(PENDING_AUTHORIZATION)
+  /// THE idempotency key. Minted once at authorization and reused on every
+  /// retry so the broker dedupes; recovery is "query by clientOrderId +
+  /// reconcile", NEVER resubmit (AGENTS.md §2). Unique so a duplicate create is
+  /// rejected by the database, not just by application logic.
+  clientOrderId       String        @unique
+  /// The broker's own order id, learned after the order is accepted. Null until
+  /// then.
+  brokerOrderId       String?
+  filledQuantity      Int           @default(0)
+  filledAvgPriceCents Int?
+  /// Why our risk engine blocked this order (set with status = RISK_BLOCKED).
+  riskBlockReason     String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([proposalId])
 }
