@@ -94,6 +94,9 @@ importers:
       '@signalguard/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@signalguard/briefings':
+        specifier: workspace:*
+        version: link:../../packages/briefings
       '@signalguard/broker-adapters':
         specifier: workspace:*
         version: link:../../packages/broker-adapters
@@ -115,6 +118,9 @@ importers:
       '@signalguard/orders':
         specifier: workspace:*
         version: link:../../packages/orders
+      '@signalguard/performance':
+        specifier: workspace:*
+        version: link:../../packages/performance
       '@signalguard/position-sizing':
         specifier: workspace:*
         version: link:../../packages/position-sizing
@@ -198,6 +204,15 @@ importers:
         version: 5.9.3
 
   packages/auth:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.7.4
+        version: 22.19.21
+      typescript:
+        specifier: ^5.6.2
+        version: 5.9.3
+
+  packages/briefings:
     devDependencies:
       '@types/node':
         specifier: ^22.7.4
