@@ -28,6 +28,9 @@ function base(overrides: Partial<ExecutionInputs> = {}): ExecutionInputs {
     bidAskSpreadBps: 10,
     manipulationRisk: "low",
     symbol: "AAPL",
+    realizedLossTodayCents: 0,
+    realizedLossWeekCents: 0,
+    realizedLossMonthCents: 0,
     ...overrides,
   };
 }
@@ -100,5 +103,28 @@ test("unknown risk profile -> RISK_BLOCK, never a silent default", () => {
   assert.equal(d.action, "risk_block");
   if (d.action === "risk_block") {
     assert.ok(d.reasons.some((r) => r.startsWith("UNKNOWN_RISK_PROFILE")));
+  }
+});
+
+// MODERATE @ $10k equity: daily limit 2% = $200 (20,000c), weekly 4% = 40,000c.
+test("daily realized loss at the limit -> HOLD (DAILY_LOSS_LIMIT), not terminal", () => {
+  const d = decideExecution(base({ realizedLossTodayCents: 20_000 }));
+  assert.equal(d.action, "hold");
+  if (d.action === "hold") assert.ok(d.reasons.includes("DAILY_LOSS_LIMIT"));
+});
+
+test("daily realized loss just under the limit -> still SUBMIT", () => {
+  const d = decideExecution(base({ realizedLossTodayCents: 19_999 }));
+  assert.equal(d.action, "submit");
+});
+
+test("weekly loss over its limit holds even when today is clean", () => {
+  const d = decideExecution(
+    base({ realizedLossTodayCents: 0, realizedLossWeekCents: 40_000 }),
+  );
+  assert.equal(d.action, "hold");
+  if (d.action === "hold") {
+    assert.ok(d.reasons.includes("WEEKLY_LOSS_LIMIT"));
+    assert.ok(!d.reasons.includes("DAILY_LOSS_LIMIT"));
   }
 });

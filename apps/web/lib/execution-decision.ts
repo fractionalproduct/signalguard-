@@ -66,6 +66,14 @@ export interface ExecutionInputs {
   bidAskSpreadBps: number;
   manipulationRisk: ManipulationRisk;
   symbol: string;
+
+  // Realized-loss circuit breakers (AGENTS.md §3). Net realized LOSS magnitude
+  // (positive cents; 0 when the window is break-even or net-positive) over the
+  // ET calendar day / week / month, sourced from closed positions. The limits
+  // themselves come from the profile (percent of equity), computed below.
+  realizedLossTodayCents: number;
+  realizedLossWeekCents: number;
+  realizedLossMonthCents: number;
 }
 
 export type ExecutionDecision =
@@ -75,6 +83,17 @@ export type ExecutionDecision =
 
 function isSelectableProfile(p: string): p is RiskProfile {
   return p in RISK_PROFILE_DEFAULTS;
+}
+
+/**
+ * Loss-limit ceiling in cents: `percent` of current equity. Returns
+ * MAX_SAFE_INTEGER (non-gating) when the result is <= 0 — covers both a 0%
+ * profile and an equity small enough that the floor rounds to 0 — so the gate
+ * never blocks at a 0-cent limit (0 >= 0) when no loss has occurred.
+ */
+function lossLimitCents(equityCents: number, percent: number): number {
+  const limit = Math.floor((equityCents * percent) / 100);
+  return limit > 0 ? limit : Number.MAX_SAFE_INTEGER;
 }
 
 export function decideExecution(input: ExecutionInputs): ExecutionDecision {
@@ -144,10 +163,22 @@ export function decideExecution(input: ExecutionInputs): ExecutionDecision {
       input.accountEquityCents > 0 ? (investedAfter / input.accountEquityCents) * 100 : 100,
     // Sector classification not available yet -> non-gating (threshold 100).
     sectorPercentAfter: 0,
-    // Realized-loss tracking is M14 -> non-gating zero losses.
-    dailyLoss: { realizedLossCents: 0, limitCents: Number.MAX_SAFE_INTEGER },
-    weeklyLoss: { realizedLossCents: 0, limitCents: Number.MAX_SAFE_INTEGER },
-    monthlyLoss: { realizedLossCents: 0, limitCents: Number.MAX_SAFE_INTEGER },
+    // Realized-loss circuit breakers: limit = profile percent of CURRENT equity,
+    // breached when net realized loss in the window reaches it. A non-positive
+    // limit (0% profile, or equity too small to round to >= 1c) is treated as
+    // NON-gating, never a 0-cent limit that blocks at zero loss.
+    dailyLoss: {
+      realizedLossCents: input.realizedLossTodayCents,
+      limitCents: lossLimitCents(input.accountEquityCents, profile.dailyLossLimitPercent),
+    },
+    weeklyLoss: {
+      realizedLossCents: input.realizedLossWeekCents,
+      limitCents: lossLimitCents(input.accountEquityCents, profile.weeklyLossLimitPercent),
+    },
+    monthlyLoss: {
+      realizedLossCents: input.realizedLossMonthCents,
+      limitCents: lossLimitCents(input.accountEquityCents, profile.monthlyLossLimitPercent),
+    },
     signalExpired: false,
     thresholds: {
       minAverageDailyVolume: 0,

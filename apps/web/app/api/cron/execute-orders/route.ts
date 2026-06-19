@@ -9,10 +9,12 @@ import {
   getDb,
   getProposalById,
   isEmergencyStopActive,
+  listClosedPositionsWithExitFills,
   listOrders,
   transitionOrderState,
 } from "@signalguard/database";
 import { classifySession } from "@signalguard/market-sessions";
+import { realizedLossWindows, realizedPnL } from "@signalguard/performance";
 import { currentInvestedCentsFromLongPositions } from "@signalguard/proposals";
 import { isAuthorizedCronRequest } from "../../../../lib/cron-auth";
 import { decideExecution } from "../../../../lib/execution-decision";
@@ -103,6 +105,33 @@ export async function GET(req: Request): Promise<Response> {
       ? ((quote.askCents - quote.bidCents) / currentMidCents) * 10_000
       : 0;
 
+  // Realized-loss windows for the loss-limit gates (AGENTS.md §3). Fail-closed,
+  // same as the emergency-stop read: if we can't compute realized loss we must
+  // NOT default to zero-loss and submit — that would bypass the breaker in the
+  // unsafe direction. Net realized P&L per closed position (one number per
+  // position; partial exit fills collapse) is bucketed into ET day/week/month.
+  let lossWindows;
+  try {
+    const closed = await listClosedPositionsWithExitFills(db, 200);
+    const trades = closed.map((c) => ({
+      closedAtMs: (c.position.closedAt ?? c.position.openedAt).getTime(),
+      pnlCents: realizedPnL(
+        c.exitFills.map((f) => ({
+          entryPriceCents: c.position.avgEntryPriceCents,
+          exitPriceCents: f.filledAvgPriceCents,
+          quantity: f.filledQuantity,
+        })),
+      ),
+    }));
+    lossWindows = realizedLossWindows(trades);
+  } catch (err) {
+    console.error("[cron/execute-orders] realized-loss read failed:", err);
+    return NextResponse.json(
+      { ok: false, error: "loss_state_unreadable" },
+      { status: 503 },
+    );
+  }
+
   const decision = decideExecution({
     authorizedQuantity: order.quantity,
     entryPriceCents: order.entryPriceCents,
@@ -126,6 +155,9 @@ export async function GET(req: Request): Promise<Response> {
     bidAskSpreadBps: spreadBps,
     manipulationRisk: "low", // wired from M7 snapshots in a follow-up
     symbol: order.symbol,
+    realizedLossTodayCents: lossWindows.todayLossCents,
+    realizedLossWeekCents: lossWindows.weekLossCents,
+    realizedLossMonthCents: lossWindows.monthLossCents,
   });
 
   if (decision.action === "hold") {
