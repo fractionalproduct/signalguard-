@@ -109,3 +109,67 @@ test('calculates volatility and guards insufficient samples and zero volatility 
   assert.ok(sharpeRatio([0.01, 0.03, -0.02]) !== null);
   assert.ok(sortinoRatio([0.01, -0.03, -0.02]) !== null);
 });
+
+import { realizedLossWindows } from './index.js';
+
+// A fixed "now": 2026-06-17 (Wednesday) 12:00 ET. June 2026: 15th=Mon, so the
+// ET week containing the 17th starts Mon the 15th.
+const NOW = new Date('2026-06-17T16:00:00Z'); // 12:00 EDT
+
+// Helper: an ET-noon instant for a given calendar day in June 2026.
+const junED = (day: number): number =>
+  new Date(`2026-06-${String(day).padStart(2, '0')}T16:00:00Z`).getTime();
+
+test('realizedLossWindows: a loss today shows in all three windows', () => {
+  const w = realizedLossWindows([{ closedAtMs: junED(17), pnlCents: -5_000 }], NOW);
+  assert.deepEqual(w, { todayLossCents: 5_000, weekLossCents: 5_000, monthLossCents: 5_000 });
+});
+
+test('realizedLossWindows: net daily — a same-day winner offsets a same-day loser', () => {
+  const w = realizedLossWindows(
+    [
+      { closedAtMs: junED(17), pnlCents: -8_000 },
+      { closedAtMs: junED(17), pnlCents: +3_000 },
+    ],
+    NOW,
+  );
+  // Net today = -5,000 (loss); week/month same.
+  assert.equal(w.todayLossCents, 5_000);
+});
+
+test('realizedLossWindows: a same-day net win is zero loss, not a negative', () => {
+  const w = realizedLossWindows(
+    [
+      { closedAtMs: junED(17), pnlCents: -2_000 },
+      { closedAtMs: junED(17), pnlCents: +9_000 },
+    ],
+    NOW,
+  );
+  assert.deepEqual(w, { todayLossCents: 0, weekLossCents: 0, monthLossCents: 0 });
+});
+
+test('realizedLossWindows: earlier-week loss counts to week+month but not today', () => {
+  // Mon 2026-06-15 is in the same ET week as Wed the 17th.
+  const w = realizedLossWindows([{ closedAtMs: junED(15), pnlCents: -4_000 }], NOW);
+  assert.equal(w.todayLossCents, 0);
+  assert.equal(w.weekLossCents, 4_000);
+  assert.equal(w.monthLossCents, 4_000);
+});
+
+test('realizedLossWindows: a loss before this Monday counts to month only, not week', () => {
+  // Fri 2026-06-12 is the prior ET week but same month.
+  const w = realizedLossWindows([{ closedAtMs: junED(12), pnlCents: -7_000 }], NOW);
+  assert.equal(w.weekLossCents, 0);
+  assert.equal(w.monthLossCents, 7_000);
+});
+
+test('realizedLossWindows: a prior-month loss counts to none of the current windows', () => {
+  const may = new Date('2026-05-20T16:00:00Z').getTime();
+  const w = realizedLossWindows([{ closedAtMs: may, pnlCents: -6_000 }], NOW);
+  assert.deepEqual(w, { todayLossCents: 0, weekLossCents: 0, monthLossCents: 0 });
+});
+
+test('realizedLossWindows: future-dated trades (clock skew) are ignored', () => {
+  const w = realizedLossWindows([{ closedAtMs: junED(20), pnlCents: -9_000 }], NOW);
+  assert.deepEqual(w, { todayLossCents: 0, weekLossCents: 0, monthLossCents: 0 });
+});

@@ -231,3 +231,94 @@ export function sortinoRatio(returns: readonly number[], minimumAcceptableReturn
   const averageExcessReturn = excessReturns.reduce((total, value) => total + value, 0) / excessReturns.length;
   return averageExcessReturn / downsideDeviation;
 }
+
+/** One closed trade for loss-window bucketing: when it closed + its realized
+ * P&L (signed cents; negative = loss). Deliberately abstract over the DB shape
+ * so this stays pure — the caller maps closed positions → these. */
+export interface ClosedTradePnl {
+  readonly closedAtMs: number;
+  readonly pnlCents: MoneyCents;
+}
+
+/** Realized LOSS magnitudes (positive cents; 0 when the window net is >= 0) for
+ * the day / week / month loss-limit gates. */
+export interface RealizedLossWindows {
+  readonly todayLossCents: MoneyCents;
+  readonly weekLossCents: MoneyCents;
+  readonly monthLossCents: MoneyCents;
+}
+
+const MS_PER_DAY = 86_400_000;
+const ET_TIME_ZONE = "America/New_York";
+const etCivilFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: ET_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+interface EtCivilDate {
+  readonly y: number;
+  readonly mo: number;
+  readonly d: number;
+}
+
+/** The America/New_York civil (wall-clock) calendar date for an instant. */
+function etCivil(ms: number): EtCivilDate {
+  const parts = etCivilFormatter.formatToParts(new Date(ms));
+  const get = (type: string): number =>
+    Number(parts.find((p) => p.type === type)?.value);
+  return { y: get("year"), mo: get("month"), d: get("day") };
+}
+
+/** Integer day index for a civil date (days since 1970-01-01), so calendar
+ * dates compare/subtract without DST drift — we treat the ET civil date as a
+ * plain calendar date, not an instant. */
+function civilOrdinal(c: EtCivilDate): number {
+  return Math.floor(Date.UTC(c.y, c.mo - 1, c.d) / MS_PER_DAY);
+}
+
+/**
+ * Bucket realized P&L into ET-calendar day / week / month windows and return the
+ * net LOSS magnitude of each (0 if that window is break-even or net-positive).
+ *
+ * Semantics are deliberate and match the conventional daily-loss-limit meaning:
+ * **net** within the window — a same-day winner offsets a same-day loser. Weeks
+ * start Monday (ET); months are the ET calendar month. "Today/this week/this
+ * month" are relative to `now` in America/New_York (AGENTS.md: US decisions use
+ * ET), so the limits reset at the ET day/week/month rollover.
+ *
+ * Pure: no I/O, no `Date.now()` unless `now` is omitted. Trades closing after
+ * `now` (clock skew) are ignored.
+ */
+export function realizedLossWindows(
+  trades: readonly ClosedTradePnl[],
+  now: Date = new Date(),
+): RealizedLossWindows {
+  const nowMs = now.getTime();
+  const nowCivil = etCivil(nowMs);
+  const todayOrd = civilOrdinal(nowCivil);
+  // Epoch day 0 (1970-01-01) was a Thursday, so weekday(0=Sun..6=Sat) =
+  // ((ord % 7) + 4) % 7; Monday-of-week = ord - (weekday + 6) % 7.
+  const weekday = ((todayOrd % 7) + 4) % 7;
+  const mondayOrd = todayOrd - ((weekday + 6) % 7);
+
+  let dayPnl = 0;
+  let weekPnl = 0;
+  let monthPnl = 0;
+  for (const t of trades) {
+    if (!isValidMoney(t.pnlCents) || t.closedAtMs > nowMs) continue;
+    const c = etCivil(t.closedAtMs);
+    const ord = civilOrdinal(c);
+    if (ord === todayOrd) dayPnl += t.pnlCents;
+    if (ord >= mondayOrd) weekPnl += t.pnlCents;
+    if (c.y === nowCivil.y && c.mo === nowCivil.mo) monthPnl += t.pnlCents;
+  }
+
+  const lossOf = (pnl: number): number => (pnl < 0 ? -pnl : 0);
+  return {
+    todayLossCents: lossOf(dayPnl),
+    weekLossCents: lossOf(weekPnl),
+    monthLossCents: lossOf(monthPnl),
+  };
+}
