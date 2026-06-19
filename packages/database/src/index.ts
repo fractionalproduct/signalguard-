@@ -51,16 +51,22 @@ export {
 } from "./emergency-stop.js";
 export {
   openPosition,
+  openPositionFromFilledEntry,
   getPositionById,
   listPositions,
   setPositionStatus,
   reducePositionQuantity,
   type OpenPositionInput,
   type OpenPositionResult,
+  type OpenFromEntryResult,
   type ListPositionsOptions,
   type SetPositionStatusResult,
   type ReducePositionResult,
 } from "./positions.js";
+export {
+  createProtectiveExitOrders,
+  type CreateProtectiveExitsResult,
+} from "./exits.js";
 export {
   createProposal,
   getProposalById,

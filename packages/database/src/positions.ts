@@ -51,6 +51,52 @@ export async function openPosition(
   }
 }
 
+export type OpenFromEntryResult =
+  | { ok: true; positionId: string }
+  | { ok: false; reason: "order_not_found" | "no_fill" | "proposal_not_found" | "duplicate" };
+
+/**
+ * Open a position from a filled entry order — the bridge from M12 (a FILLED buy)
+ * to M13 (a held position). Quantity/avg-price come from the broker-confirmed
+ * fill; the protective stop/target come from the proposal. Idempotent on the
+ * entry order (one position per fill): a re-call returns `duplicate`.
+ */
+export async function openPositionFromFilledEntry(
+  db: PrismaClient,
+  entryOrderId: string,
+): Promise<OpenFromEntryResult> {
+  const order = await db.order.findUnique({
+    where: { id: entryOrderId },
+    select: {
+      symbol: true,
+      filledQuantity: true,
+      filledAvgPriceCents: true,
+      proposalId: true,
+    },
+  });
+  if (!order) return { ok: false, reason: "order_not_found" };
+  if (order.filledQuantity < 1 || order.filledAvgPriceCents === null) {
+    return { ok: false, reason: "no_fill" };
+  }
+  const proposal = await db.tradeProposal.findUnique({
+    where: { id: order.proposalId },
+    select: { stopCents: true, targetCents: true },
+  });
+  if (!proposal) return { ok: false, reason: "proposal_not_found" };
+
+  const r = await openPosition(db, {
+    symbol: order.symbol,
+    quantity: order.filledQuantity,
+    avgEntryPriceCents: order.filledAvgPriceCents,
+    entryOrderId,
+    stopCents: proposal.stopCents,
+    targetCents: proposal.targetCents,
+  });
+  return r.ok
+    ? { ok: true, positionId: r.id }
+    : { ok: false, reason: "duplicate" };
+}
+
 /** Single position by id, or null. */
 export function getPositionById(
   db: PrismaClient,
