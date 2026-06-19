@@ -44,6 +44,12 @@ export {
 } from "./manipulation-alerts.js";
 export { acknowledgeAlert } from "./alerts-acknowledge.js";
 export {
+  getEmergencyStopState,
+  isEmergencyStopActive,
+  setEmergencyStop,
+  type EmergencyStopState,
+} from "./emergency-stop.js";
+export {
   createProposal,
   getProposalById,
   listAuditEventsForProposal,

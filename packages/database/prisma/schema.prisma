@@ -98,6 +98,19 @@ model AuditEvent {
   @@index([ownerId])
 }
 
+/// Single-row global kill switch (AGENTS.md §14). When `active`, the execution
+/// worker MUST NOT submit new orders. M12 only READS this flag; the activation
+/// UI, cancel-unfilled, and protective-exit handling are M16. Enforced as a
+/// singleton via the fixed id "global".
+model EmergencyStop {
+  id        String   @id @default("global")
+  active    Boolean  @default(false)
+  reason    String?
+  /// Owner who last toggled it, for audit. Null for system/default.
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
 // --- Milestone 5: source intelligence & signals --------------------------------
 // Mirrors the types in @signalguard/domain. Source content is treated as hostile
 // data; instructions inside it are never executed (AGENTS.md §2). No connector
