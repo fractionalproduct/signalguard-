@@ -4,6 +4,7 @@ import {
   approveProposalAction,
   authorizeProposalAction,
   cancelProposalAction,
+  generateProposalsAction,
   reduceProposalAction,
   rejectProposalAction,
   setRiskProfileAction,
@@ -24,8 +25,11 @@ export function ProposalsList({ state }: { state: ProposalsState }) {
     return <ErrorCard message={state.message} />;
   return (
     <section className="page-card">
-      <p className="eyebrow">Beginner view · read-only · PAPER TRADING</p>
-      <h1>Proposals</h1>
+      <p className="eyebrow">Beginner view · PAPER TRADING</p>
+      <div className="page-header-row">
+        <h1>Proposals</h1>
+        <GenerateButton />
+      </div>
       <p className="lead">
         Candidate paper-trade ideas the proposal layer produced from your
         watchlist snapshots. Nothing here ever reaches the broker without
@@ -43,15 +47,27 @@ export function ProposalsList({ state }: { state: ProposalsState }) {
 function EmptyCard() {
   return (
     <section className="page-card">
-      <p className="eyebrow">Beginner view · read-only · PAPER TRADING</p>
-      <h1>Proposals</h1>
+      <p className="eyebrow">Beginner view · PAPER TRADING</p>
+      <div className="page-header-row">
+        <h1>Proposals</h1>
+        <GenerateButton />
+      </div>
       <div className="empty-state" role="status">
-        No trade proposals yet. The proposal generator (a future slice)
-        will read from the latest watchlist snapshots and write candidates
-        here. Until then, this view stays empty — the schema is in place
-        and the page is ready.
+        No trade proposals yet. Click <strong>Generate proposals</strong> to
+        scan your watchlist (WATCHLIST_SYMBOLS) for candidate paper trades.
+        Requires Alpaca market-data access configured for this environment.
       </div>
     </section>
+  );
+}
+
+function GenerateButton() {
+  return (
+    <form action={generateProposalsAction}>
+      <button type="submit" className="btn-primary" aria-label="Generate proposals from the watchlist">
+        Generate proposals
+      </button>
+    </form>
   );
 }
 
