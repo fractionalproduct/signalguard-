@@ -449,3 +449,35 @@ model Order {
   @@index([status, createdAt(sort: Desc)])
   @@index([proposalId])
 }
+
+enum PositionStatus {
+  OPEN
+  CLOSING
+  CLOSED
+}
+
+/// A held LONG paper position, opened by a filled entry order (M13). PAPER ONLY,
+/// long-only. `quantity` is the live source of truth that protective exits are
+/// sized against (it shrinks as exits fill) — never sell more than this across
+/// all exit orders (the oversell invariant). Realized P&L is M14.
+model Position {
+  id                 String         @id @default(cuid())
+  symbol             String
+  /// Net shares currently held. Shrinks as exit orders fill; 0 => CLOSED.
+  quantity           Int
+  avgEntryPriceCents Int
+  /// The filled entry order that opened this position (FK-style string, mirrors
+  /// TradeProposal.snapshotId). Unique: one position per entry order.
+  entryOrderId       String         @unique
+  /// Protective levels carried from the proposal, used to place the OCO exits.
+  stopCents          Int
+  targetCents        Int
+  status             PositionStatus @default(OPEN)
+  openedAt           DateTime       @default(now())
+  closedAt           DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@index([status])
+  @@index([symbol])
+}

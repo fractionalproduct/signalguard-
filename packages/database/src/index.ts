@@ -50,6 +50,18 @@ export {
   type EmergencyStopState,
 } from "./emergency-stop.js";
 export {
+  openPosition,
+  getPositionById,
+  listPositions,
+  setPositionStatus,
+  reducePositionQuantity,
+  type OpenPositionInput,
+  type OpenPositionResult,
+  type ListPositionsOptions,
+  type SetPositionStatusResult,
+  type ReducePositionResult,
+} from "./positions.js";
+export {
   createProposal,
   getProposalById,
   listAuditEventsForProposal,

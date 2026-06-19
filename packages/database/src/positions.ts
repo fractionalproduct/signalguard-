@@ -1,0 +1,186 @@
+import {
+  Prisma,
+  type Position,
+  type PositionStatus as PrismaPositionStatus,
+  type PrismaClient,
+} from "@prisma/client";
+import { canTransition, isLive, type PositionStatus } from "@signalguard/positions";
+
+/**
+ * Open a paper position from a filled entry order. Long-only; starts OPEN.
+ * Idempotent on `entryOrderId` (one position per entry order): a duplicate
+ * create returns { ok:false, reason:"duplicate" } rather than throwing P2002 or
+ * inserting a second position for the same fill.
+ */
+export interface OpenPositionInput {
+  symbol: string;
+  quantity: number;
+  avgEntryPriceCents: number;
+  entryOrderId: string;
+  stopCents: number;
+  targetCents: number;
+}
+
+export type OpenPositionResult =
+  | { ok: true; id: string }
+  | { ok: false; reason: "duplicate" };
+
+export async function openPosition(
+  db: PrismaClient,
+  input: OpenPositionInput,
+): Promise<OpenPositionResult> {
+  try {
+    const row = await db.position.create({
+      data: {
+        symbol: input.symbol,
+        quantity: input.quantity,
+        avgEntryPriceCents: input.avgEntryPriceCents,
+        entryOrderId: input.entryOrderId,
+        stopCents: input.stopCents,
+        targetCents: input.targetCents,
+        status: "OPEN",
+      },
+      select: { id: true },
+    });
+    return { ok: true, id: row.id };
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { ok: false, reason: "duplicate" };
+    }
+    throw e;
+  }
+}
+
+/** Single position by id, or null. */
+export function getPositionById(
+  db: PrismaClient,
+  positionId: string,
+): Promise<Position | null> {
+  return db.position.findUnique({ where: { id: positionId } });
+}
+
+export interface ListPositionsOptions {
+  status?: PositionStatus;
+  /** Cap, clamped to [1, 200]. Default 50. */
+  limit?: number;
+}
+
+/** Newest-first by openedAt. */
+export function listPositions(
+  db: PrismaClient,
+  options: ListPositionsOptions = {},
+): Promise<Position[]> {
+  const limit = Math.min(Math.max(options.limit ?? 50, 1), 200);
+  return db.position.findMany({
+    where: options.status
+      ? { status: options.status as PrismaPositionStatus }
+      : {},
+    orderBy: { openedAt: "desc" },
+    take: limit,
+  });
+}
+
+export type SetPositionStatusResult =
+  | { ok: true; from: PositionStatus; to: PositionStatus }
+  | {
+      ok: false;
+      reason: "not_found" | "illegal_transition" | "conflict";
+      from?: PositionStatus;
+    };
+
+/**
+ * Transition a position's status, enforcing the lifecycle (@signalguard/
+ * positions). Concurrency-safe via a conditional update gated on the validated
+ * from-status. Moving to CLOSED stamps `closedAt`.
+ */
+export async function setPositionStatus(
+  db: PrismaClient,
+  positionId: string,
+  to: PositionStatus,
+): Promise<SetPositionStatusResult> {
+  const current = await db.position.findUnique({
+    where: { id: positionId },
+    select: { status: true },
+  });
+  if (!current) return { ok: false, reason: "not_found" };
+
+  const from = current.status as PositionStatus;
+  if (!canTransition(from, to)) {
+    return { ok: false, reason: "illegal_transition", from };
+  }
+
+  const res = await db.position.updateMany({
+    where: { id: positionId, status: from as PrismaPositionStatus },
+    data: {
+      status: to as PrismaPositionStatus,
+      ...(to === "CLOSED" ? { closedAt: new Date() } : {}),
+    },
+  });
+  if (res.count === 0) return { ok: false, reason: "conflict", from };
+
+  return { ok: true, from, to };
+}
+
+export type ReducePositionResult =
+  | { ok: true; previous: number; quantity: number; status: PositionStatus }
+  | {
+      ok: false;
+      reason:
+        | "not_found"
+        | "not_live"
+        | "not_an_integer"
+        | "out_of_range"
+        | "conflict";
+    };
+
+/**
+ * Reduce a position's held quantity as an exit order fills — the mechanism that
+ * keeps `quantity` the live source of truth exits are sized against. The new
+ * quantity must be an integer in [0, current). Reaching 0 closes the position
+ * (CLOSED + closedAt); any partial reduction marks it CLOSING.
+ *
+ * Concurrency-safe: gated on BOTH a live status AND the exact current quantity,
+ * so two racing fills can't double-reduce — the loser reports `conflict`.
+ */
+export async function reducePositionQuantity(
+  db: PrismaClient,
+  positionId: string,
+  newQuantity: number,
+): Promise<ReducePositionResult> {
+  const current = await db.position.findUnique({
+    where: { id: positionId },
+    select: { status: true, quantity: true },
+  });
+  if (!current) return { ok: false, reason: "not_found" };
+  if (!isLive(current.status as PositionStatus)) {
+    return { ok: false, reason: "not_live" };
+  }
+  if (!Number.isInteger(newQuantity)) {
+    return { ok: false, reason: "not_an_integer" };
+  }
+  if (newQuantity < 0 || newQuantity >= current.quantity) {
+    return { ok: false, reason: "out_of_range" };
+  }
+
+  const toClosed = newQuantity === 0;
+  const res = await db.position.updateMany({
+    where: {
+      id: positionId,
+      quantity: current.quantity,
+      status: { in: ["OPEN", "CLOSING"] },
+    },
+    data: {
+      quantity: newQuantity,
+      status: toClosed ? "CLOSED" : "CLOSING",
+      ...(toClosed ? { closedAt: new Date() } : {}),
+    },
+  });
+  if (res.count === 0) return { ok: false, reason: "conflict" };
+
+  return {
+    ok: true,
+    previous: current.quantity,
+    quantity: newQuantity,
+    status: toClosed ? "CLOSED" : "CLOSING",
+  };
+}
