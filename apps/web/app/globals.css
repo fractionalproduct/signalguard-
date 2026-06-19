@@ -144,6 +144,21 @@ body {
   opacity: 0.68;
 }
 
+/* Active Emergency Stop — header control + page-wide banner. */
+.emergency-stop--active {
+  background: #c0392b;
+  border-color: #e74c3c;
+  color: #fff;
+}
+.emergency-banner {
+  background: #c0392b;
+  color: #fff;
+  font-weight: 800;
+  text-align: center;
+  padding: 8px 16px;
+  letter-spacing: 0.02em;
+}
+
 .user-menu-placeholder {
   display: inline-flex;
   align-items: center;

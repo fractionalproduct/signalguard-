@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { logoutAction } from "../login/actions";
+import { EmergencyStopButton } from "./EmergencyStopButton";
 import { NotificationBell } from "./NotificationBell";
 
 const navItems = [
@@ -30,12 +31,20 @@ function StatusPill({ label }: { label: string }) {
 export function AppShell({
   children,
   ownerEmail,
+  emergencyStopActive,
 }: {
   children: ReactNode;
   ownerEmail: string;
+  emergencyStopActive: boolean;
 }) {
   return (
     <div className="app-shell">
+      {emergencyStopActive ? (
+        <div className="emergency-banner" role="alert">
+          ⛔ EMERGENCY STOP ACTIVE — new orders are blocked. Protective exits
+          remain live.
+        </div>
+      ) : null}
       <header className="global-header" aria-label="Global status header">
         <div className="brand-block">
           <Link className="brand-link" href="/home" aria-label="SignalGuard home">
@@ -52,16 +61,7 @@ export function AppShell({
 
         <div className="header-actions">
           <NotificationBell />
-          <span className="tooltip-wrap" title="Wired up in a later milestone">
-            <button
-              className="emergency-stop"
-              type="button"
-              disabled
-              aria-label="Emergency Stop disabled: Wired up in a later milestone"
-            >
-              Emergency Stop
-            </button>
-          </span>
+          <EmergencyStopButton active={emergencyStopActive} />
           <div className="user-menu">
             <span className="user-email" title={ownerEmail}>
               {ownerEmail}

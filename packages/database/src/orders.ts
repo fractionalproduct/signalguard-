@@ -145,6 +145,26 @@ export function listReconcilableOrders(
   });
 }
 
+/**
+ * Unfilled ENTRY orders that Emergency Stop must cancel (AGENTS.md §14): entry
+ * orders still pre-fill at the broker (AUTHORIZED / SUBMITTED / ACCEPTED).
+ * Exit orders (STOP/TARGET) are deliberately EXCLUDED — Emergency Stop
+ * *preserves* protective exits, never cancels them.
+ */
+export function listCancelableEntryOrders(
+  db: PrismaClient,
+  limit = 200,
+): Promise<Order[]> {
+  return db.order.findMany({
+    where: {
+      orderKind: "ENTRY",
+      status: { in: ["AUTHORIZED", "SUBMITTED", "ACCEPTED"] },
+    },
+    orderBy: { createdAt: "asc" },
+    take: Math.min(Math.max(limit, 1), 500),
+  });
+}
+
 export type TransitionOrderResult =
   | { ok: true; from: OrderState; to: OrderState }
   | {
