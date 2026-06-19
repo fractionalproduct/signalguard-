@@ -27,7 +27,7 @@ export function LoginForm() {
         <span>Password</span>
         <input name="password" type="password" autoComplete="current-password" required />
       </label>
-      {state.error ? (
+      {state?.error ? (
         <p className="form-error" role="alert">
           {state.error}
         </p>
