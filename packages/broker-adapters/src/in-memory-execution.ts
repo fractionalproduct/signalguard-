@@ -2,6 +2,8 @@ import type {
   BrokerOrder,
   BrokerWriteClient,
   Cents,
+  OcoExitResult,
+  SubmitOcoExitInput,
   SubmitOrderInput,
 } from "./types.js";
 
@@ -33,6 +35,8 @@ export class InMemoryExecutionBroker implements BrokerWriteClient {
   private readonly byClientId = new Map<string, BrokerOrder>();
   /** Index from broker order id back to clientOrderId. */
   private readonly brokerIdToClientId = new Map<string, string>();
+  /** OCO leg broker id -> its OCO parent broker id. */
+  private readonly legParent = new Map<string, string>();
   private seq = 0;
 
   private nextBrokerOrderId(): string {
@@ -72,6 +76,46 @@ export class InMemoryExecutionBroker implements BrokerWriteClient {
     this.byClientId.set(input.clientOrderId, order);
     this.brokerIdToClientId.set(brokerOrderId, input.clientOrderId);
     return { ...order };
+  }
+
+  async submitOcoExit(input: SubmitOcoExitInput): Promise<OcoExitResult> {
+    // Idempotency: a repeat with the same stop key resolves to the existing pair.
+    const existingStop = this.byClientId.get(input.stopClientOrderId);
+    const existingTarget = this.byClientId.get(input.targetClientOrderId);
+    if (existingStop && existingTarget) {
+      const parentBrokerOrderId =
+        this.legParent.get(existingStop.brokerOrderId) ?? existingStop.brokerOrderId;
+      return { parentBrokerOrderId, stop: { ...existingStop }, target: { ...existingTarget } };
+    }
+
+    const parentBrokerOrderId = this.nextBrokerOrderId();
+    const mkLeg = (
+      clientOrderId: string,
+      type: BrokerOrder["type"],
+    ): BrokerOrder => {
+      const brokerOrderId = this.nextBrokerOrderId();
+      const leg: BrokerOrder = {
+        brokerOrderId,
+        clientOrderId,
+        symbol: input.symbol,
+        side: "sell",
+        type,
+        quantity: input.quantity,
+        filledQuantity: 0,
+        status: "new",
+        filledAvgPriceCents: null,
+        submittedAt: new Date().toISOString(),
+        filledAt: null,
+      };
+      this.byClientId.set(clientOrderId, leg);
+      this.brokerIdToClientId.set(brokerOrderId, clientOrderId);
+      this.legParent.set(brokerOrderId, parentBrokerOrderId);
+      return leg;
+    };
+
+    const target = mkLeg(input.targetClientOrderId, "limit");
+    const stop = mkLeg(input.stopClientOrderId, "stop");
+    return { parentBrokerOrderId, stop: { ...stop }, target: { ...target } };
   }
 
   async getOrderByClientId(clientOrderId: string): Promise<BrokerOrder | null> {
@@ -140,6 +184,7 @@ export class InMemoryExecutionBroker implements BrokerWriteClient {
   reset(): void {
     this.byClientId.clear();
     this.brokerIdToClientId.clear();
+    this.legParent.clear();
     this.seq = 0;
   }
 }

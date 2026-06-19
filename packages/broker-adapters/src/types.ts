@@ -87,6 +87,37 @@ export interface SubmitOrderInput {
 }
 
 /**
+ * Submit a protective OCO exit (M13): a stop-loss + take-profit SELL pair on a
+ * held long. The broker links them one-cancels-other, so exactly one can fill —
+ * the structural guarantee against overselling into a short. Each leg carries
+ * its own idempotency key so the worker tracks/cancels/reconciles it like any
+ * order.
+ */
+export interface SubmitOcoExitInput {
+  /** Idempotency key for the stop leg (e.g. `sg-{positionId}-stop`). */
+  stopClientOrderId: string;
+  /** Idempotency key for the target leg (e.g. `sg-{positionId}-target`). */
+  targetClientOrderId: string;
+  symbol: string;
+  /** Shares to exit. The caller enforces the oversell invariant (<= held). */
+  quantity: number;
+  /** Take-profit limit price (the TARGET leg). */
+  targetLimitPriceCents: Cents;
+  /** Stop trigger price (the STOP leg). */
+  stopPriceCents: Cents;
+  timeInForce: "DAY" | "GTC";
+}
+
+export interface OcoExitResult {
+  /** The OCO parent's broker id (the group handle). */
+  parentBrokerOrderId: string;
+  /** The take-profit SELL leg. */
+  target: BrokerOrder;
+  /** The stop-loss SELL leg. */
+  stop: BrokerOrder;
+}
+
+/**
  * Write access for the isolated restricted trading worker ONLY — the sole
  * service near broker credentials. Kept as a SEPARATE interface from
  * BrokerReadClient so read and write stay cleanly split (read methods
@@ -99,6 +130,11 @@ export interface BrokerWriteClient {
    * resolves to and returns the existing order.
    */
   submitOrder(input: SubmitOrderInput): Promise<BrokerOrder>;
+  /**
+   * Submit a protective OCO exit (stop + target SELL). **Idempotent**: a repeat
+   * with the same leg keys resolves to the existing pair, never a duplicate.
+   */
+  submitOcoExit(input: SubmitOcoExitInput): Promise<OcoExitResult>;
   /** Look up an order by its client (idempotency) id, or null if none exists. */
   getOrderByClientId(clientOrderId: string): Promise<BrokerOrder | null>;
   /** Cancel an unfilled order by its broker-assigned id. */

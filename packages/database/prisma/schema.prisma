@@ -418,14 +418,29 @@ enum OrderState {
 /// and the reconciliation job. PAPER ONLY (AGENTS.md §2) — long-only, side is
 /// always "BUY", money is integer cents, and no field encodes anything that
 /// could be interpreted as a live trade.
+enum OrderKind {
+  ENTRY
+  STOP
+  TARGET
+  TIME_EXIT
+}
+
 model Order {
   id                  String        @id @default(cuid())
   proposalId          String
   proposal            TradeProposal @relation(fields: [proposalId], references: [id])
   symbol              String
-  /// Long-only (AGENTS.md §2): always "BUY". String (not an enum) because there
-  /// is exactly one legal value and no other side will ever be added.
+  /// "BUY" for an entry; "SELL" for a position-REDUCING exit (M13). Still
+  /// long-only (AGENTS.md §2): a SELL only ever reduces a held long and can
+  /// never exceed it (the oversell invariant) — it is never a short entry.
   side                String        @default("BUY")
+  /// ENTRY (the M12 buy) or an exit leg: STOP / TARGET / TIME_EXIT (M13).
+  orderKind           OrderKind     @default(ENTRY)
+  /// For exit orders: the Position being reduced (FK-style string). Null for entries.
+  parentPositionId    String?
+  /// Stop+target legs submitted as a broker OCO share this id, so the oversell
+  /// guard counts the pair ONCE. Null for entries and standalone exits.
+  ocoGroupId          String?
   quantity            Int
   entryPriceCents     Int
   stopPriceCents      Int?
@@ -448,6 +463,7 @@ model Order {
 
   @@index([status, createdAt(sort: Desc)])
   @@index([proposalId])
+  @@index([parentPositionId])
 }
 
 enum PositionStatus {

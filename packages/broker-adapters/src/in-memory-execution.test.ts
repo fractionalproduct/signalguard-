@@ -13,6 +13,46 @@ const marketBuy: SubmitOrderInput = {
   timeInForce: "DAY",
 };
 
+const ocoInput = {
+  stopClientOrderId: "sg-pos1-stop",
+  targetClientOrderId: "sg-pos1-target",
+  symbol: "NVDA",
+  quantity: 10,
+  targetLimitPriceCents: 19000,
+  stopPriceCents: 17000,
+  timeInForce: "GTC" as const,
+};
+
+test("submitOcoExit returns a SELL stop + target pair for the full quantity", async () => {
+  const broker = new InMemoryExecutionBroker();
+  const r = await broker.submitOcoExit(ocoInput);
+  assert.equal(r.stop.side, "sell");
+  assert.equal(r.target.side, "sell");
+  assert.equal(r.stop.type, "stop");
+  assert.equal(r.target.type, "limit");
+  assert.equal(r.stop.quantity, 10);
+  assert.equal(r.target.quantity, 10);
+});
+
+test("OCO legs are retrievable by their clientOrderId (per-leg reconcile/cancel)", async () => {
+  const broker = new InMemoryExecutionBroker();
+  const r = await broker.submitOcoExit(ocoInput);
+  const stop = await broker.getOrderByClientId("sg-pos1-stop");
+  const target = await broker.getOrderByClientId("sg-pos1-target");
+  assert.equal(stop?.brokerOrderId, r.stop.brokerOrderId);
+  assert.equal(target?.brokerOrderId, r.target.brokerOrderId);
+});
+
+test("submitOcoExit is idempotent — repeat returns the same legs, no new orders", async () => {
+  const broker = new InMemoryExecutionBroker();
+  const r1 = await broker.submitOcoExit(ocoInput);
+  const sizeBefore = broker.size;
+  const r2 = await broker.submitOcoExit(ocoInput);
+  assert.equal(r2.stop.brokerOrderId, r1.stop.brokerOrderId);
+  assert.equal(r2.target.brokerOrderId, r1.target.brokerOrderId);
+  assert.equal(broker.size, sizeBefore);
+});
+
 test("submitOrder creates an order with new/0-filled state", async () => {
   const broker = new InMemoryExecutionBroker();
   const order = await broker.submitOrder(marketBuy);
