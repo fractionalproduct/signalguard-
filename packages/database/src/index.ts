@@ -111,6 +111,7 @@ export {
   listOrders,
   listOrdersByProposalIds,
   listReconcilableOrders,
+  listCancelableEntryOrders,
   transitionOrderState,
   recordFill,
   setBrokerOrderId,
