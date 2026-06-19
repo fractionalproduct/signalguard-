@@ -8,6 +8,7 @@ import {
   transitionOrderState,
 } from "@signalguard/database";
 import { isAuthorizedCronRequest } from "../../../../lib/cron-auth";
+import { isPositionMonitorEnabled } from "../../../../lib/position-monitor-flag";
 
 /**
  * Position monitor (M13). For each OPEN position lacking protective exits, it
@@ -32,6 +33,12 @@ export async function GET(req: Request): Promise<Response> {
     })
   ) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  // Kill switch — pause placing NEW protective exits without touching
+  // Emergency-Stop (which preserves, never blocks, exits).
+  if (!isPositionMonitorEnabled()) {
+    return NextResponse.json({ ok: true, reason: "disabled", placed: 0 });
   }
 
   const writeClient = createPaperExecutionClientFromEnv();
