@@ -46,6 +46,8 @@
     "lib/position-monitor-flag.test.ts",
     "lib/notifications-view.ts",
     "lib/notifications-view.test.ts",
-    "lib/briefing-email.test.ts"
+    "lib/briefing-email.test.ts",
+    "lib/performance-view.ts",
+    "lib/performance-view.test.ts"
   ]
 }
