@@ -22,8 +22,12 @@ export { PrismaClient };
 export type {
   AuditEvent,
   ManipulationAlert,
+  Notification,
+  NotificationSeverity,
   Order,
   Owner,
+  Position,
+  PositionStatus,
   TechnicalAnalysisSnapshot,
   TradeProposal,
   TradeProposalStatus,
@@ -44,6 +48,15 @@ export {
 } from "./manipulation-alerts.js";
 export { acknowledgeAlert } from "./alerts-acknowledge.js";
 export {
+  createNotification,
+  listNotifications,
+  unreadNotificationCount,
+  markNotificationRead,
+  markAllNotificationsRead,
+  type CreateNotificationInput,
+  type ListNotificationsOptions,
+} from "./notifications.js";
+export {
   getEmergencyStopState,
   isEmergencyStopActive,
   setEmergencyStop,
@@ -54,12 +67,15 @@ export {
   openPositionFromFilledEntry,
   getPositionById,
   listPositions,
+  listClosedPositionsWithExitFills,
   setPositionStatus,
   reducePositionQuantity,
   type OpenPositionInput,
   type OpenPositionResult,
   type OpenFromEntryResult,
   type ListPositionsOptions,
+  type ClosedPositionWithExitFills,
+  type ExitFill,
   type SetPositionStatusResult,
   type ReducePositionResult,
 } from "./positions.js";

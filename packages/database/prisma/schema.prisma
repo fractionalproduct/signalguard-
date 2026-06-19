@@ -472,6 +472,40 @@ enum PositionStatus {
   CLOSED
 }
 
+/// Operator-facing urgency for in-app notifications (M15). Mirrors the
+/// NotificationSeverity union in @signalguard/notifications.
+enum NotificationSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+/// One in-app notification (M15). Written by the briefing cron (a daily
+/// "briefing.evening" digest) and, later, by critical-alert paths. The owner
+/// reads these on /notifications and acknowledges them (read/readAt). PAPER
+/// ONLY — purely a read/notify surface; nothing here ever touches orders or
+/// broker credentials. `title`/`body` are pre-rendered, secret-free text;
+/// any symbol or ingested free text they contain is HTML-escaped at the email
+/// boundary, never trusted as markup (AGENTS.md §2).
+model Notification {
+  id        String               @id @default(cuid())
+  /// Optional owner the notification is attributed to. Single-owner today, so
+  /// the cron writes null and the unread count spans all rows.
+  ownerId   String?
+  /// Stable event key, e.g. "briefing.evening" | "alert.manipulation". String
+  /// (not a Prisma enum) so adding notification types later is migration-free.
+  type      String
+  severity  NotificationSeverity @default(INFO)
+  title     String
+  body      String
+  read      Boolean              @default(false)
+  createdAt DateTime             @default(now())
+  readAt    DateTime?
+
+  @@index([read, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+}
+
 /// A held LONG paper position, opened by a filled entry order (M13). PAPER ONLY,
 /// long-only. `quantity` is the live source of truth that protective exits are
 /// sized against (it shrinks as exits fill) — never sell more than this across

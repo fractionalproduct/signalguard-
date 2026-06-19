@@ -1,10 +1,9 @@
-import { PlaceholderPage } from "../../components/PlaceholderPage";
+import { PerformanceDashboard } from "../../components/PerformanceDashboard";
+import { loadPerformanceState } from "../../../lib/performance";
 
-export default function PerformancePage() {
-  return (
-    <PlaceholderPage
-      title="Performance"
-      description="A future view for paper-trading results, benchmark comparisons, and realized or unrealized P&L."
-    />
-  );
+export const dynamic = "force-dynamic";
+
+export default async function PerformancePage() {
+  const state = await loadPerformanceState();
+  return <PerformanceDashboard state={state} />;
 }

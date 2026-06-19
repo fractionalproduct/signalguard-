@@ -167,6 +167,70 @@ export async function setPositionStatus(
   return { ok: true, from, to };
 }
 
+/** A FILLED exit leg's contribution to a closed position's realized P&L. */
+export interface ExitFill {
+  filledQuantity: number;
+  filledAvgPriceCents: number;
+}
+
+/** A CLOSED position paired with its FILLED protective-exit legs. */
+export interface ClosedPositionWithExitFills {
+  position: Position;
+  exitFills: ExitFill[];
+}
+
+/**
+ * For the M14 performance page: every CLOSED position (newest-first by
+ * `closedAt`) with its FILLED exit legs — the STOP / TARGET / TIME_EXIT orders
+ * that reduced it. Only legs with `filledQuantity > 0` count (a partial fill
+ * still realizes P&L); status is intentionally NOT filtered so partially-filled
+ * legs are included. Entry orders are excluded (orderKind constraint).
+ *
+ * `filledAvgPriceCents` can be null on an Order row; such legs are dropped here
+ * because realized P&L needs an exit price. Pure read; no mutation.
+ */
+export async function listClosedPositionsWithExitFills(
+  db: PrismaClient,
+  limit = 200,
+): Promise<ClosedPositionWithExitFills[]> {
+  const take = Math.min(Math.max(limit, 1), 200);
+  const positions = await db.position.findMany({
+    where: { status: "CLOSED" },
+    orderBy: { closedAt: "desc" },
+    take,
+  });
+  if (positions.length === 0) return [];
+
+  const fills = await db.order.findMany({
+    where: {
+      parentPositionId: { in: positions.map((p) => p.id) },
+      orderKind: { in: ["STOP", "TARGET", "TIME_EXIT"] },
+      filledQuantity: { gt: 0 },
+    },
+    select: {
+      parentPositionId: true,
+      filledQuantity: true,
+      filledAvgPriceCents: true,
+    },
+  });
+
+  const byPosition = new Map<string, ExitFill[]>();
+  for (const f of fills) {
+    if (f.parentPositionId === null || f.filledAvgPriceCents === null) continue;
+    const list = byPosition.get(f.parentPositionId) ?? [];
+    list.push({
+      filledQuantity: f.filledQuantity,
+      filledAvgPriceCents: f.filledAvgPriceCents,
+    });
+    byPosition.set(f.parentPositionId, list);
+  }
+
+  return positions.map((position) => ({
+    position,
+    exitFills: byPosition.get(position.id) ?? [],
+  }));
+}
+
 export type ReducePositionResult =
   | { ok: true; previous: number; quantity: number; status: PositionStatus }
   | {
