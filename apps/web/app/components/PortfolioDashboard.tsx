@@ -1,5 +1,6 @@
 import type { PortfolioState } from "../../lib/portfolio";
 import type { PortfolioView } from "../../lib/portfolio-view";
+import { InstrumentBadge } from "./InstrumentBadge";
 
 /**
  * Presentational dashboard for the read-only portfolio. Renders one of the
@@ -107,6 +108,7 @@ function PositionsTable({ view }: { view: PortfolioView }) {
       <table className="data-table" aria-label="Open positions">
         <thead>
           <tr>
+            <th>Instrument</th>
             <th>Symbol</th>
             <th>Side</th>
             <th>Qty</th>
@@ -119,6 +121,7 @@ function PositionsTable({ view }: { view: PortfolioView }) {
         <tbody>
           {view.positions.map((p) => (
             <tr key={p.symbol}>
+              <td><InstrumentBadge kind="EQUITY" /></td>
               <td>{p.symbol}</td>
               <td>{p.side}</td>
               <td>{p.quantity}</td>

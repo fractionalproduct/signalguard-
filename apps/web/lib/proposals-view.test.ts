@@ -25,6 +25,7 @@ function proposal(
     status: "DRAFT",
     quantity: null,
     notes: null,
+    source: "DETERMINISTIC",
     expiresAt: new Date("2026-06-19T12:00:00.000Z"),
     createdAt: new Date("2026-06-18T11:55:00.000Z"),
     updatedAt: new Date("2026-06-18T11:55:00.000Z"),
@@ -205,6 +206,38 @@ test("non-APPROVED proposals are never authorizable", () => {
     const view = buildProposalsView([proposal({ status })], NOW);
     assert.equal(view.rows[0]?.authorizable, false, `${status}`);
   }
+});
+
+test("each row carries a trade-analysis verdict; clean proposal is PASS", () => {
+  const view = buildProposalsView([proposal()], NOW);
+  const row = view.rows[0]!;
+  assert.equal(row.analysis.verdict, "PASS");
+  assert.ok(row.analysis.score > 0);
+  assert.ok(typeof row.analysis.headline === "string");
+});
+
+test("structurally bad proposal (stop above entry) is flagged AVOID", () => {
+  const view = buildProposalsView(
+    [proposal({ stopCents: 10100 })], // stop above entry -> invalid geometry
+    NOW,
+  );
+  const row = view.rows[0]!;
+  assert.equal(row.analysis.verdict, "AVOID");
+  assert.ok(row.analysis.risks.length > 0);
+});
+
+test("low-confidence small-sample proposal lands on CAUTION, not hidden", () => {
+  const view = buildProposalsView(
+    [
+      proposal({
+        confidence: "INSUFFICIENT_DATA",
+        sampleSize: 5,
+      }),
+    ],
+    NOW,
+  );
+  const row = view.rows[0]!;
+  assert.equal(row.analysis.verdict, "CAUTION");
 });
 
 test("past-expiry DRAFT not yet swept is NOT actionable", () => {

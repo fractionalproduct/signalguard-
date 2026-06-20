@@ -6,18 +6,26 @@ import {
   createPaperExecutionClientFromEnv,
 } from "@signalguard/broker-adapters";
 import {
+  getAutopilotConfig,
   getDb,
   getProposalById,
   isEmergencyStopActive,
   listClosedPositionsWithExitFills,
+  listLatestWatchlistSnapshots,
   listOrders,
   transitionOrderState,
 } from "@signalguard/database";
 import { classifySession } from "@signalguard/market-sessions";
-import { realizedLossWindows, realizedPnL } from "@signalguard/performance";
+import {
+  realizedLossWindows,
+  realizedNetTodayCents,
+  realizedPnL,
+  sumCentsOnEtDay,
+} from "@signalguard/performance";
 import { currentInvestedCentsFromLongPositions } from "@signalguard/proposals";
 import { isAuthorizedCronRequest } from "../../../../lib/cron-auth";
 import { decideExecution } from "../../../../lib/execution-decision";
+import { manipulationRiskFromFlags } from "../../../../lib/manipulation-risk";
 
 /**
  * Restricted execution worker, as a Vercel Cron route (M12 slice 4). Submits at
@@ -100,6 +108,20 @@ export async function GET(req: Request): Promise<Response> {
   const quote = marketData ? await marketData.getQuote(order.symbol) : null;
   const currentMidCents =
     quote ? Math.round((quote.bidCents + quote.askCents) / 2) : null;
+
+  // Real manipulation risk from the symbol's latest M7 snapshot (was hardcoded
+  // "low"). A snapshot-read failure must NOT block trading — default to "low"
+  // (no worse than before), since this gate hardens, not gatekeeps.
+  let manipulationRisk: "low" | "elevated" | "high" = "low";
+  try {
+    const [latestSnap] = await listLatestWatchlistSnapshots(db, {
+      symbol: order.symbol,
+      limit: 1,
+    });
+    manipulationRisk = manipulationRiskFromFlags(latestSnap ?? null);
+  } catch (err) {
+    console.error("[cron/execute-orders] manipulation snapshot read failed:", err);
+  }
   const spreadBps =
     quote && currentMidCents && currentMidCents > 0
       ? ((quote.askCents - quote.bidCents) / currentMidCents) * 10_000
@@ -111,6 +133,8 @@ export async function GET(req: Request): Promise<Response> {
   // unsafe direction. Net realized P&L per closed position (one number per
   // position; partial exit fills collapse) is bucketed into ET day/week/month.
   let lossWindows;
+  let dailyControls;
+  let extendedHoursEnabled = false;
   try {
     const closed = await listClosedPositionsWithExitFills(db, 200);
     const trades = closed.map((c) => ({
@@ -124,13 +148,40 @@ export async function GET(req: Request): Promise<Response> {
       ),
     }));
     lossWindows = realizedLossWindows(trades);
+
+    // Owner daily controls (capital cap + profit-lock). Read the config and the
+    // day's running ledger in the same fail-closed block: capital DEPLOYED today
+    // = gross entry notional of ENTRY orders committed today (sent or filled),
+    // and realized PROFIT today = the positive part of net realized P&L today.
+    const config = await getAutopilotConfig(db);
+    extendedHoursEnabled = config.extendedHoursEnabled;
+    const recentOrders = await listOrders(db, { limit: 200 });
+    const COMMITTED = new Set(["SUBMITTED", "ACCEPTED", "PARTIALLY_FILLED", "FILLED"]);
+    const capitalDeployedTodayCents = sumCentsOnEtDay(
+      recentOrders
+        .filter((o) => o.orderKind === "ENTRY" && COMMITTED.has(o.status))
+        .map((o) => ({ atMs: o.createdAt.getTime(), cents: o.quantity * o.entryPriceCents })),
+    );
+    dailyControls = {
+      capitalDeployedTodayCents,
+      realizedProfitTodayCents: Math.max(0, realizedNetTodayCents(trades)),
+      capCents: config.dailyCapitalCapCents,
+      profitTargetCents: config.dailyProfitTargetCents,
+      profitLockEnabled: config.profitLockEnabled,
+    };
   } catch (err) {
-    console.error("[cron/execute-orders] realized-loss read failed:", err);
+    console.error("[cron/execute-orders] daily-state read failed:", err);
     return NextResponse.json(
-      { ok: false, error: "loss_state_unreadable" },
+      { ok: false, error: "daily_state_unreadable" },
       { status: 503 },
     );
   }
+
+  const session = classifySession(new Date(), {});
+  // Extended-hours routing: only when the owner opted in AND we're actually in
+  // a pre/after-hours session (the autonomous engine stays regular-only).
+  const routeExtendedHours =
+    extendedHoursEnabled && (session === "PRE_MARKET" || session === "AFTER_HOURS");
 
   const decision = decideExecution({
     authorizedQuantity: order.quantity,
@@ -150,14 +201,16 @@ export async function GET(req: Request): Promise<Response> {
     brokerConnected: true, // getAccount succeeded
     marketDataFresh: quote !== null,
     accountDataFresh: true,
-    marketSession: classifySession(new Date(), {}),
+    marketSession: session,
+    extendedHoursAllowed: extendedHoursEnabled,
     currentMidCents,
     bidAskSpreadBps: spreadBps,
-    manipulationRisk: "low", // wired from M7 snapshots in a follow-up
+    manipulationRisk,
     symbol: order.symbol,
     realizedLossTodayCents: lossWindows.todayLossCents,
     realizedLossWeekCents: lossWindows.weekLossCents,
     realizedLossMonthCents: lossWindows.monthLossCents,
+    dailyControls,
   });
 
   if (decision.action === "hold") {
@@ -207,6 +260,7 @@ export async function GET(req: Request): Promise<Response> {
       type: "limit",
       limitPriceCents: decision.limitPriceCents,
       timeInForce: "DAY",
+      extendedHours: routeExtendedHours,
     });
   } catch (err) {
     // Submission failed (not a duplicate — the client swallows those). Leave the

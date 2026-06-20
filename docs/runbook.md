@@ -67,6 +67,25 @@ When the owner must act, helpers should give exact numbered steps and explain:
 5. What must never be pasted into chat.
 6. How success will be verified.
 
+## Autonomous trading (autopilot)
+
+Autopilot lets the AI approve + authorize trades without a click. It is **OFF and in SHADOW by default**. Even when armed it can never place an order that breaks a limit — the execute-orders worker re-checks the full guardrail stack (risk engine, daily loss limits, daily capital cap, profit-lock, Emergency Stop) before any broker submission.
+
+**The three states** (on `/settings` → Autonomous Trading):
+- **OFF** — engine does nothing.
+- **SHADOW** — engine evaluates every proposal and logs what it *would* do (the decision log), but trades nothing.
+- **ARMED** — engine auto-approves + authorizes eligible proposals. Refuses to arm without a daily capital cap **and** a max-new-positions limit.
+
+**Before arming (required):**
+1. Set a conservative **daily capital cap** and **max new positions/day**.
+2. Enable **SHADOW** and let it run **during market hours**.
+3. Review the **decision log** on `/settings` — confirm it marks sensible proposals `ELIGIBLE` and skips the rest for good reasons.
+4. Only then flip to **ARMED**.
+
+**To stop it immediately:** press **Emergency Stop** (blocks all new orders, cancels unfilled entries, preserves protective exits) — this overrides autopilot. To stop just the autonomous approvals, set autopilot back to **SHADOW** or **OFF** on `/settings`. CLI fallback: `node scripts/autopilot-config.mjs off`.
+
+**If it misbehaves:** Emergency Stop first; then read the audit trail (`autopilot.*` events) and `/today` P&L; do not guess at broker state — let the reconciler sync. Autopilot is paper-only and never available for CONSERVATIVE / EDUCATION_ONLY profiles.
+
 ## Plain-language rule
 
 When something goes wrong, preserve safety first, keep protective exits intact, check the audit trail, and do not guess about broker state.

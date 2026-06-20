@@ -111,6 +111,125 @@ model EmergencyStop {
   updatedAt DateTime @updatedAt
 }
 
+/// Owner-configurable autonomous-trading controls. Singleton (single-owner app),
+/// mirroring EmergencyStop. Every knob is intentionally conservative by default;
+/// autopilot is OFF and SHADOW until the owner explicitly arms it. Money in cents.
+model AutopilotConfig {
+  id String @id @default("global")
+
+  /// Master switch. When false, the autonomous engine does nothing at all.
+  enabled Boolean @default(false)
+  /// Decide-and-log only: the engine evaluates + records what it WOULD do but
+  /// never approves/submits. The safe default; arming = setting this false.
+  shadowMode Boolean @default(true)
+
+  /// Daily controls (the owner-facing limits). Null = that limit is disabled.
+  /// Max capital DEPLOYED (gross entry notional of new positions) per ET day.
+  dailyCapitalCapCents Int?
+  /// Realized-profit "profit-lock": once net realized P&L today reaches this,
+  /// stop opening new positions for the day (protective exits untouched).
+  dailyProfitTargetCents Int?
+  profitLockEnabled Boolean @default(true)
+  /// Cap on new positions opened per ET day. Null = use the risk profile default.
+  maxNewPositionsPerDay Int?
+
+  /// Owner opt-in to trade PRE_MARKET / AFTER_HOURS (manual path only — the
+  /// autonomous engine stays regular-session-only). Default false = regular only.
+  extendedHoursEnabled Boolean @default(false)
+
+  /// Auto-approval gate thresholds (a proposal must clear ALL of these).
+  minProbability    Float @default(0.6)
+  minConfidence     Float @default(0.7)
+  /// Minimum expected value in R multiples (reward/risk-weighted by probability).
+  minExpectedValueR Float @default(0.1)
+  /// Reject proposals older than this many seconds (signal-freshness TTL).
+  /// 1h default: proposals are generated hourly, so a short TTL would make them
+  /// eligible only briefly. Configurable.
+  maxSignalAgeSeconds Int @default(3600)
+
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
+/// A tradable option contract (long single-leg, M17 — docs/options-scope.md).
+/// Equity tables are deliberately untouched; options live in their own Option*
+/// models so no equity code path branches on multiplier / expiry / option
+/// semantics. Money in integer cents.
+model OptionContract {
+  id String @id @default(cuid())
+  /// Canonical OCC symbol, e.g. "META260718C00720000". Unique.
+  occSymbol String @unique
+  /// Equity ticker the option is on, e.g. "META" (SAME universe as equities).
+  underlying String
+  /// "CALL" | "PUT".
+  right String
+  /// Strike price in integer cents (e.g. $720.00 -> 72000).
+  strikeCents Int
+  /// Expiration date (the option dies at this date's market close).
+  expiration DateTime
+  /// Shares per contract — always 100. All P&L = price x multiplier x contracts.
+  multiplier Int @default(100)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  positions OptionPosition[]
+
+  @@index([underlying, expiration])
+}
+
+/// A LONG option position (M17). `contracts` is the live source of truth; the
+/// maximum loss is bounded at `premiumPaidCents` (the debit paid — no
+/// assignment/margin for long single-leg). Mirrors the equity Position
+/// lifecycle (OPEN -> CLOSING -> CLOSED).
+model OptionPosition {
+  id String @id @default(cuid())
+  optionContractId String
+  optionContract OptionContract @relation(fields: [optionContractId], references: [id])
+  /// Live contract count (source of truth, like equity Position.quantity).
+  contracts Int
+  /// Average premium paid PER SHARE, in cents.
+  avgPremiumPaidCents Int
+  /// Total cost basis = contracts x avgPremiumPaidCents x multiplier. Also the
+  /// maximum loss (a long option can go to zero).
+  premiumPaidCents Int
+  /// "OPEN" | "CLOSING" | "CLOSED".
+  status String @default("OPEN")
+  openedAt DateTime @default(now())
+  closedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, openedAt])
+}
+
+/// A trade-symbol candidate from the TradingAgents sidecar
+/// (docs/tradingagents-integration-review.md). The sidecar WRITES these; the
+/// ta-ingest cron consumes NEW ones, runs OUR M9 scan on the symbol, and creates
+/// a proposal (source="TRADING_AGENTS"). TradingAgents is a SYMBOL NOMINATOR — it
+/// never supplies prices/probability/sizing; we recompute everything. thesisText
+/// is UNTRUSTED (attacker-influenced news/social) → proposal.notes only.
+model TaCandidate {
+  id String @id @default(cuid())
+  /// Idempotency / dedup key from the sidecar run. Unique.
+  agentRunId String @unique
+  symbol String
+  /// "BUY" | "SELL" | "HOLD" — only BUY survives (long-only).
+  action String
+  /// The model's own conviction (0..1). Advisory only; NOT pTargetFirstPoint.
+  confidenceHint Float?
+  /// Untrusted free-text rationale — lands in proposal.notes, never parsed.
+  thesisText String?
+  asOfDate DateTime
+  /// "NEW" | "INGESTED" | "DROPPED".
+  status String @default("NEW")
+  /// Why dropped (off_watchlist / not_buy / scan_failed), for audit.
+  dropReason String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+}
+
 // --- Milestone 5: source intelligence & signals --------------------------------
 // Mirrors the types in @signalguard/domain. Source content is treated as hostile
 // data; instructions inside it are never executed (AGENTS.md §2). No connector
@@ -383,6 +502,10 @@ model TradeProposal {
   // clearance to trade.
   quantity          Int?
   notes             String?
+  /// Provenance: "DETERMINISTIC" (M9 scan, default) | "TRADING_AGENTS" (LLM
+  /// symbol nominator, re-scanned by us). A string (not enum) so new sources are
+  /// migration-free. NEVER changes how the gate/sizing/risk engine treat the row.
+  source            String              @default("DETERMINISTIC")
   expiresAt         DateTime?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
@@ -391,6 +514,7 @@ model TradeProposal {
 
   @@index([symbol, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
+  @@index([source, createdAt(sort: Desc)])
 }
 
 /// M12 paper order lifecycle state. Mirrors OrderState in @signalguard/orders —

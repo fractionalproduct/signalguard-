@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { AutopilotSettings } from "../../components/AutopilotSettings";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
   return (
     <section className="page-card">
       <p className="eyebrow">Beginner view</p>
@@ -34,6 +35,8 @@ export default function SettingsPage() {
       <p id="advanced-view-note" className="empty-state" role="status">
         Coming in a later milestone
       </p>
+
+      <AutopilotSettings />
     </section>
   );
 }

@@ -9,17 +9,15 @@ import {
   createOrder,
   getDb,
   getProposalById,
-  listLatestWatchlistSnapshots,
   listOrders,
   reduceProposalQuantity,
   rejectProposal,
   setProposalNotes,
   setProposalRiskProfile,
   transitionOrderState,
-  createProposal,
 } from "@signalguard/database";
 import { isTerminal as isOrderTerminal, type OrderState } from "@signalguard/orders";
-import { generateProposalForSymbol } from "@signalguard/proposals";
+import { generateAndPersistProposal } from "../../../lib/proposal-generation";
 
 /** Deterministic broker idempotency key for a proposal's entry order. One
  * proposal yields at most one entry order, so deriving the key from the
@@ -62,36 +60,13 @@ export async function generateProposalsAction(): Promise<void> {
   }
 
   const db = getDb();
-  const end = new Date();
-  // ~200 daily bars = comfortable buffer for the 20-bar horizon scan.
-  const start = new Date(end.getTime() - 365 * 86_400_000);
 
   for (const symbol of symbols) {
     try {
-      const [latestSnapshot] = await listLatestWatchlistSnapshots(db, {
-        symbol,
-        barInterval: "1d",
-        limit: 1,
+      const { created } = await generateAndPersistProposal(db, marketData, symbol, {
+        source: "DETERMINISTIC",
       });
-      const bars = await marketData.getBars({
-        symbol,
-        interval: "1d",
-        start: start.toISOString(),
-        end: end.toISOString(),
-        limit: 200,
-      });
-      const draft = generateProposalForSymbol({
-        symbol,
-        snapshotId: latestSnapshot?.id,
-        bars,
-        riskProfile: "MODERATE",
-        horizonBars: 20,
-        stopFraction: 0.03,
-        targetFraction: 0.05,
-      });
-      if (draft) {
-        await createProposal(db, draft);
-      } else {
+      if (!created) {
         console.info(
           `[generateProposalsAction] ${symbol}: no draft (insufficient bars or zero close)`,
         );

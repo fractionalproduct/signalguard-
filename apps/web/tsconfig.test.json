@@ -42,12 +42,26 @@
     "lib/proposal-detail-view.test.ts",
     "lib/execution-decision.ts",
     "lib/execution-decision.test.ts",
+    "lib/auto-approval.ts",
+    "lib/auto-approval.test.ts",
+    "lib/manipulation-risk.ts",
+    "lib/manipulation-risk.test.ts",
+    "lib/trade-analysis.ts",
+    "lib/trade-analysis.test.ts",
     "lib/position-monitor-flag.ts",
     "lib/position-monitor-flag.test.ts",
     "lib/notifications-view.ts",
     "lib/notifications-view.test.ts",
     "lib/briefing-email.test.ts",
     "lib/performance-view.ts",
-    "lib/performance-view.test.ts"
+    "lib/performance-view.test.ts",
+    "lib/today-view.ts",
+    "lib/today-view.test.ts",
+    "lib/benchmark-view.ts",
+    "lib/benchmark-view.test.ts",
+    "lib/options-view.ts",
+    "lib/options-view.test.ts",
+    "lib/ta-ingest.ts",
+    "lib/ta-ingest.test.ts"
   ]
 }

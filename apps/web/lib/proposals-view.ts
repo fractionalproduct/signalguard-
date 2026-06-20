@@ -11,6 +11,7 @@ import type { TradeProposal } from "@signalguard/database";
 import { isActionable, type ProposalStatus } from "@signalguard/proposals";
 import { formatUsd } from "./money";
 import { relativeTime } from "./research-view";
+import { analyzeTrade, type TradeAnalysis } from "./trade-analysis";
 
 export interface ProposalRow {
   id: string;
@@ -48,6 +49,9 @@ export interface ProposalRow {
   /** True when the owner may authorize+place: APPROVED, sized, no order yet,
    * not past expiry. */
   authorizable: boolean;
+  /** Deterministic trade-quality verdict (PASS/CAUTION/AVOID) + score + risks.
+   * ADVISORY ONLY — never hides the row; AVOID is flagged loudly in the UI. */
+  analysis: TradeAnalysis;
 }
 
 export interface ProposalsView {
@@ -87,6 +91,19 @@ function buildRow(
 ): ProposalRow {
   const expiresAt = p.expiresAt;
   const isExpired = expiresAt ? expiresAt.getTime() < nowMs : false;
+  const analysis = analyzeTrade(
+    {
+      pTargetFirstPoint: p.pTargetFirstPoint,
+      confidence: p.confidence,
+      sampleSize: p.sampleSize,
+      entryCents: p.entryCents,
+      stopCents: p.stopCents,
+      targetCents: p.targetCents,
+      createdAtMs: p.createdAt.getTime(),
+    },
+    undefined,
+    new Date(nowMs),
+  );
   return {
     id: p.id,
     symbol: p.symbol,
@@ -116,6 +133,7 @@ function buildRow(
       (p.quantity ?? 0) >= 1 &&
       !isExpired &&
       orderState === null,
+    analysis,
   };
 }
 

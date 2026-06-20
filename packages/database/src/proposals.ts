@@ -38,6 +38,7 @@ export async function createProposal(
       confidence: draft.confidence,
       notes: draft.notes,
       expiresAt: draft.expiresAt,
+      source: draft.source ?? "DETERMINISTIC",
     },
     select: { id: true },
   });

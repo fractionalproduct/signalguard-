@@ -13,8 +13,16 @@
       "schedule": "15 * * * *"
     },
     {
+      "path": "/api/cron/autopilot",
+      "schedule": "*/2 * * * *"
+    },
+    {
       "path": "/api/cron/execute-orders",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/ta-ingest",
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/reconcile-orders",

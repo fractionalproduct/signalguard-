@@ -25,9 +25,12 @@ export type {
   Notification,
   NotificationSeverity,
   Order,
+  OptionContract,
+  OptionPosition,
   Owner,
   Position,
   PositionStatus,
+  TaCandidate,
   TechnicalAnalysisSnapshot,
   TradeProposal,
   TradeProposalStatus,
@@ -62,6 +65,18 @@ export {
   setEmergencyStop,
   type EmergencyStopState,
 } from "./emergency-stop.js";
+export {
+  getAutopilotConfig,
+  setAutopilotConfig,
+  AUTOPILOT_DEFAULTS,
+  type AutopilotConfig,
+  type AutopilotConfigPatch,
+} from "./autopilot-config.js";
+export {
+  listOpenOptionPositions,
+  type OptionPositionWithContract,
+} from "./option-positions.js";
+export { listRecentAuditEvents } from "./audit-events.js";
 export {
   openPosition,
   openPositionFromFilledEntry,
@@ -122,3 +137,11 @@ export {
   type RecordFillResult,
   type SetBrokerOrderIdResult,
 } from "./orders.js";
+export {
+  createTaCandidate,
+  listNewTaCandidates,
+  setTaCandidateStatus,
+  type CreateTaCandidateInput,
+  type CreateTaCandidateResult,
+  type SetTaCandidateStatusResult,
+} from "./ta-candidates.js";
