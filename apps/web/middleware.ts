@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE } from "./lib/session-cookie";
-import { isMockMode } from "./lib/mock/mock-mode";
+import { MOCK_COOKIE, resolveMockMode } from "./lib/mock/mock-cookie";
 
 /**
  * Lightweight gate: checks only for the *presence* of a session cookie (Prisma
@@ -10,9 +10,10 @@ import { isMockMode } from "./lib/mock/mock-mode";
  */
 export function middleware(req: NextRequest) {
   // Demo/preview mock mode: no auth at all (no DB, including sessions). Every
-  // page renders sample data; the gate below is skipped entirely. isMockMode()
-  // is force-disabled in production, so this can never open prod up.
-  if (isMockMode()) {
+  // page renders sample data; the gate below is skipped entirely. resolveMockMode
+  // is force-disabled in production, so this can never open prod up. (Middleware
+  // reads req.cookies directly — next/headers is unavailable on the edge.)
+  if (resolveMockMode(req.cookies.get(MOCK_COOKIE)?.value)) {
     return NextResponse.next();
   }
 

@@ -1,18 +1,24 @@
+import { cookies } from "next/headers";
+import { MOCK_COOKIE, resolveMockMode } from "./mock-cookie";
+
 /**
- * Demo / preview "mock mode". When `MOCK_DATA=1`, the page data-loaders return
+ * Demo / preview "mock mode". When enabled, the page data-loaders return
  * realistic fixtures built through the SAME pure view-builders as real data —
  * so every page renders fully populated WITHOUT any database, broker, or market
- * API call. This exists so the owner can preview what each page looks like with
+ * API call, and auth is bypassed. This lets the owner preview every page with
  * data, with zero risk to the shared production database.
  *
- * Server-only (the loaders that read it are server components / server-side).
- * Off unless explicitly enabled.
+ * Enabled per-browser via the `sg_mock` cookie (the in-app dev toggle), falling
+ * back to the `MOCK_DATA` env var. ALWAYS off in production (see resolveMockMode).
+ *
+ * Request-scoped: reads the cookie via next/headers, so it must only be called
+ * from server components / route handlers / server actions. Outside a request
+ * (where cookies() throws) it falls back to the env default.
  */
 export function isMockMode(): boolean {
-  // Hard safety: mock mode bypasses auth, so it must be IMPOSSIBLE in
-  // production even if MOCK_DATA leaks into the prod environment. Vercel sets
-  // NODE_ENV=production on every deployed build, so this can only ever engage
-  // in local `next dev` / test.
-  if (process.env.NODE_ENV === "production") return false;
-  return process.env.MOCK_DATA === "1";
+  try {
+    return resolveMockMode(cookies().get(MOCK_COOKIE)?.value);
+  } catch {
+    return resolveMockMode(undefined);
+  }
 }
