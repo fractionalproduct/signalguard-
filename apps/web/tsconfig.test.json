@@ -54,6 +54,8 @@
     "lib/performance-view.ts",
     "lib/performance-view.test.ts",
     "lib/today-view.ts",
-    "lib/today-view.test.ts"
+    "lib/today-view.test.ts",
+    "lib/benchmark-view.ts",
+    "lib/benchmark-view.test.ts"
   ]
 }
