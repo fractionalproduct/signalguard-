@@ -6,6 +6,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "@signalguard/database";
+import { getCurrentOwner } from "../../../lib/session";
 
 /**
  * Server action invoked by the NotificationsList "Acknowledge" form. Reads the
@@ -19,6 +20,7 @@ import {
 export async function acknowledgeNotificationAction(
   formData: FormData,
 ): Promise<void> {
+  if (!(await getCurrentOwner())) return;
   const notificationId = String(formData.get("notificationId") ?? "").trim();
   if (!notificationId) return;
   await markNotificationRead(getDb(), notificationId);
@@ -27,6 +29,7 @@ export async function acknowledgeNotificationAction(
 
 /** Mark every unread notification read in one action. */
 export async function acknowledgeAllNotificationsAction(): Promise<void> {
+  if (!(await getCurrentOwner())) return;
   await markAllNotificationsRead(getDb());
   revalidatePath("/notifications");
 }
