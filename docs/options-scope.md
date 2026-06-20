@@ -96,12 +96,14 @@ Options are **manual-only** in M17. The owner chose "eventually autonomous," so 
 - Stricter thresholds than manual: lower per-trade + aggregate premium caps, higher OI/volume floors, tighter spread cap, narrower DTE band (e.g. 21–45), tighter IV band, fewer concurrent positions per underlying/expiry.
 - **Long shadow period** (decision/log only, no orders) — 4–8 weeks / ~60 trading days — reviewed before arming, exactly like the equity engine's shadow gate but longer.
 
-## 10. Open decisions for the owner (before/at build start)
+## 10. Owner decisions — RESOLVED (2026-06-20)
 
-1. **IV / greeks / OI source** — confirm Alpaca exposes these on paper; if IV-rank is unavailable, that gate becomes manual-only (everything else still holds).
-2. **Default risk numbers** — accept the §5 defaults, or set your own per-trade ($500?) / aggregate ($2,000?) / DTE (7–45?) values.
-3. **Underlyings** — restrict options to the existing watchlist, or a separate (likely smaller, more liquid) options watchlist?
-4. **Profit-take / time-stop defaults** — +40% target, DTE-3 mandatory close — accept or adjust.
+1. **IV / greeks / OI source** — ✅ proceed. Build prerequisite: confirm what Alpaca exposes on paper; if IV-rank is unavailable, the IV gate degrades to manual-only and everything else still holds.
+2. **Risk numbers** — ✅ use the §5 defaults **and make them owner-configurable**. The defaults ship as-is; an `OptionRiskConfig` (mirroring `AutopilotConfig`) lets the owner change per-trade / aggregate / DTE / spread / liquidity values without redeploying. Defaults: $500/trade, $2,000 aggregate open, DTE 7–45, spread ≤ 8%, OI ≥ 500 / vol ≥ 100.
+3. **Underlyings & UI** — ✅ **same underlyings as equities** (the existing watchlist — e.g. META can have both an equity and an option trade). Options are shown on the **existing pages** (proposals, positions, /today, /performance), NOT a separate area. **Hard UI requirement:** an equity trade and an options trade must be *unmistakable at a glance* — a clear instrument badge on every row/card (e.g. a neutral `EQUITY` tag vs a colored `OPTION · CALL`/`OPTION · PUT` tag showing strike + expiry), distinct styling, and the option contract spelled out (`META 2026-07-18 $720 CALL`). No ambiguity about what kind of trade the owner is approving.
+4. **Profit-take / time-stop defaults** — ✅ keep: +40% sell-to-close target, mandatory close at DTE ≤ 3 (also owner-configurable via `OptionRiskConfig`).
+
+**Gate cleared — Slice 1 may begin.**
 
 ## 11. Sliced build plan (each slice independently shippable + tested)
 
