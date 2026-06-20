@@ -173,3 +173,37 @@ test('realizedLossWindows: future-dated trades (clock skew) are ignored', () => 
   const w = realizedLossWindows([{ closedAtMs: junED(20), pnlCents: -9_000 }], NOW);
   assert.deepEqual(w, { todayLossCents: 0, weekLossCents: 0, monthLossCents: 0 });
 });
+
+import { realizedNetTodayCents, sumCentsOnEtDay } from './index.js';
+
+test('realizedNetTodayCents: nets winners and losers closing today', () => {
+  const net = realizedNetTodayCents(
+    [
+      { closedAtMs: junED(17), pnlCents: -3_000 },
+      { closedAtMs: junED(17), pnlCents: +8_000 },
+      { closedAtMs: junED(15), pnlCents: -9_999 }, // earlier in week, not today
+    ],
+    NOW,
+  );
+  assert.equal(net, 5_000);
+});
+
+test('realizedNetTodayCents: ignores future-dated trades', () => {
+  assert.equal(
+    realizedNetTodayCents([{ closedAtMs: junED(20), pnlCents: +9_000 }], NOW),
+    0,
+  );
+});
+
+test('sumCentsOnEtDay: sums only items stamped on the ET day of now', () => {
+  const total = sumCentsOnEtDay(
+    [
+      { atMs: junED(17), cents: 50_000 },
+      { atMs: junED(17), cents: 25_000 },
+      { atMs: junED(16), cents: 99_999 }, // yesterday
+      { atMs: junED(20), cents: 99_999 }, // future
+    ],
+    NOW,
+  );
+  assert.equal(total, 75_000);
+});

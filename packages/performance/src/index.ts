@@ -322,3 +322,49 @@ export function realizedLossWindows(
     monthLossCents: lossOf(monthPnl),
   };
 }
+
+/** A cents amount stamped with the instant it occurred (for ET-day bucketing). */
+export interface DatedCents {
+  readonly atMs: number;
+  readonly cents: MoneyCents;
+}
+
+/**
+ * Sum the cents of items whose `atMs` falls on `now`'s ET calendar day. Powers
+ * the daily capital-deployed total (gross entry notional placed today) for the
+ * daily-capital-cap gate. Future-dated items (clock skew) are ignored.
+ */
+export function sumCentsOnEtDay(
+  items: readonly DatedCents[],
+  now: Date = new Date(),
+): MoneyCents {
+  const nowMs = now.getTime();
+  const todayOrd = civilOrdinal(etCivil(nowMs));
+  let total = 0;
+  for (const it of items) {
+    if (!isValidMoney(it.cents) || it.atMs > nowMs) continue;
+    if (civilOrdinal(etCivil(it.atMs)) === todayOrd) total += it.cents;
+  }
+  return total;
+}
+
+/**
+ * NET (signed) realized P&L for trades closing on `now`'s ET calendar day.
+ * Positive = net profit today, negative = net loss. Powers the profit-lock
+ * (lock in gains once today's realized profit reaches the target) and the daily
+ * P&L view. Same ET-day semantics as realizedLossWindows; future-dated trades
+ * (clock skew) ignored.
+ */
+export function realizedNetTodayCents(
+  trades: readonly ClosedTradePnl[],
+  now: Date = new Date(),
+): MoneyCents {
+  const nowMs = now.getTime();
+  const todayOrd = civilOrdinal(etCivil(nowMs));
+  let net = 0;
+  for (const t of trades) {
+    if (!isValidMoney(t.pnlCents) || t.closedAtMs > nowMs) continue;
+    if (civilOrdinal(etCivil(t.closedAtMs)) === todayOrd) net += t.pnlCents;
+  }
+  return net;
+}

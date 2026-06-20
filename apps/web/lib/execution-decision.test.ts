@@ -128,3 +128,52 @@ test("weekly loss over its limit holds even when today is clean", () => {
     assert.ok(!d.reasons.includes("DAILY_LOSS_LIMIT"));
   }
 });
+
+// ---- Owner daily controls (autopilot): profit-lock + capital cap ----
+// base() sizes to 5 sh @ $100 = $50,000 notional (MODERATE, $10k equity).
+const dailyOff = {
+  capitalDeployedTodayCents: 0,
+  realizedProfitTodayCents: 0,
+  capCents: null,
+  profitTargetCents: null,
+  profitLockEnabled: true,
+};
+
+test("profit-lock: realized profit at target -> HOLD (PROFIT_LOCK)", () => {
+  const d = decideExecution(
+    base({
+      dailyControls: { ...dailyOff, profitTargetCents: 10_000, realizedProfitTodayCents: 10_000 },
+    }),
+  );
+  assert.equal(d.action, "hold");
+  if (d.action === "hold") assert.ok(d.reasons.includes("PROFIT_LOCK"));
+});
+
+test("profit-lock disabled -> still SUBMIT even past target", () => {
+  const d = decideExecution(
+    base({
+      dailyControls: {
+        ...dailyOff,
+        profitLockEnabled: false,
+        profitTargetCents: 10_000,
+        realizedProfitTodayCents: 50_000,
+      },
+    }),
+  );
+  assert.equal(d.action, "submit");
+});
+
+test("daily capital cap: this entry's notional would breach -> HOLD (DAILY_CAPITAL_CAP)", () => {
+  const d = decideExecution(
+    base({ dailyControls: { ...dailyOff, capCents: 50_000, capitalDeployedTodayCents: 1 } }),
+  );
+  assert.equal(d.action, "hold");
+  if (d.action === "hold") assert.ok(d.reasons.includes("DAILY_CAPITAL_CAP"));
+});
+
+test("daily capital cap: exactly fits -> SUBMIT (boundary, not a breach)", () => {
+  const d = decideExecution(
+    base({ dailyControls: { ...dailyOff, capCents: 50_000, capitalDeployedTodayCents: 0 } }),
+  );
+  assert.equal(d.action, "submit");
+});

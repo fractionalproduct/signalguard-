@@ -63,6 +63,13 @@ export {
   type EmergencyStopState,
 } from "./emergency-stop.js";
 export {
+  getAutopilotConfig,
+  setAutopilotConfig,
+  AUTOPILOT_DEFAULTS,
+  type AutopilotConfig,
+  type AutopilotConfigPatch,
+} from "./autopilot-config.js";
+export {
   openPosition,
   openPositionFromFilledEntry,
   getPositionById,

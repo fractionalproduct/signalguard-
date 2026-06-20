@@ -111,6 +111,40 @@ model EmergencyStop {
   updatedAt DateTime @updatedAt
 }
 
+/// Owner-configurable autonomous-trading controls. Singleton (single-owner app),
+/// mirroring EmergencyStop. Every knob is intentionally conservative by default;
+/// autopilot is OFF and SHADOW until the owner explicitly arms it. Money in cents.
+model AutopilotConfig {
+  id String @id @default("global")
+
+  /// Master switch. When false, the autonomous engine does nothing at all.
+  enabled Boolean @default(false)
+  /// Decide-and-log only: the engine evaluates + records what it WOULD do but
+  /// never approves/submits. The safe default; arming = setting this false.
+  shadowMode Boolean @default(true)
+
+  /// Daily controls (the owner-facing limits). Null = that limit is disabled.
+  /// Max capital DEPLOYED (gross entry notional of new positions) per ET day.
+  dailyCapitalCapCents Int?
+  /// Realized-profit "profit-lock": once net realized P&L today reaches this,
+  /// stop opening new positions for the day (protective exits untouched).
+  dailyProfitTargetCents Int?
+  profitLockEnabled Boolean @default(true)
+  /// Cap on new positions opened per ET day. Null = use the risk profile default.
+  maxNewPositionsPerDay Int?
+
+  /// Auto-approval gate thresholds (a proposal must clear ALL of these).
+  minProbability    Float @default(0.6)
+  minConfidence     Float @default(0.7)
+  /// Minimum expected value in R multiples (reward/risk-weighted by probability).
+  minExpectedValueR Float @default(0.1)
+  /// Reject proposals older than this many seconds (signal-freshness TTL).
+  maxSignalAgeSeconds Int @default(300)
+
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
 // --- Milestone 5: source intelligence & signals --------------------------------
 // Mirrors the types in @signalguard/domain. Source content is treated as hostile
 // data; instructions inside it are never executed (AGENTS.md §2). No connector
