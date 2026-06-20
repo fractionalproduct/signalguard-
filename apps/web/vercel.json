@@ -13,6 +13,10 @@
       "schedule": "15 * * * *"
     },
     {
+      "path": "/api/cron/autopilot",
+      "schedule": "*/2 * * * *"
+    },
+    {
       "path": "/api/cron/execute-orders",
       "schedule": "* * * * *"
     },

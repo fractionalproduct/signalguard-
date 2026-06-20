@@ -660,3 +660,93 @@ h2 {
   font-size: 13px;
   resize: vertical;
 }
+
+/* Autopilot settings panel. */
+.autopilot-status {
+  margin: 16px 0 0;
+  font-size: 15px;
+}
+.autopilot-state {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.autopilot-state--off {
+  background: rgba(154, 163, 178, 0.18);
+  color: var(--muted);
+}
+.autopilot-state--shadow {
+  background: rgba(245, 166, 35, 0.18);
+  color: #f5a623;
+}
+.autopilot-state--armed {
+  background: #c0392b;
+  color: #fff;
+  font-weight: 800;
+  text-transform: uppercase;
+  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.55);
+}
+
+.autopilot-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 20px 0 8px;
+  max-width: 560px;
+}
+.autopilot-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+.autopilot-toggle input {
+  margin-top: 3px;
+}
+.autopilot-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.autopilot-field label {
+  font-size: 13px;
+  color: var(--muted);
+}
+.autopilot-field input {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(154, 163, 178, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font: inherit;
+}
+
+.autopilot-log {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.autopilot-log__row {
+  display: grid;
+  grid-template-columns: minmax(140px, auto) minmax(160px, auto) 1fr;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(154, 163, 178, 0.16);
+  border-radius: 10px;
+  background: rgba(11, 16, 32, 0.4);
+  font-size: 13px;
+}
+.autopilot-log__time {
+  color: var(--muted);
+}
+.autopilot-log__type {
+  font-weight: 700;
+}
+.autopilot-log__summary {
+  color: #cfd5e3;
+}

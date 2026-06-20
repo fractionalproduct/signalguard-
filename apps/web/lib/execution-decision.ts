@@ -74,6 +74,28 @@ export interface ExecutionInputs {
   realizedLossTodayCents: number;
   realizedLossWeekCents: number;
   realizedLossMonthCents: number;
+
+  // Owner daily controls (autopilot). Optional: when omitted, neither gate
+  // applies (back-compat + manual-mode paths that don't supply a daily ledger).
+  dailyControls?: DailyControls;
+}
+
+/**
+ * The day's running ledger + the owner's daily caps, used to gate new entries.
+ * Both gates are TRANSIENT (HOLD, not terminal): a capped/locked day resumes
+ * trading at the next ET-day rollover, so a held order is re-evaluated then.
+ */
+export interface DailyControls {
+  /** Gross entry notional of new positions already deployed today (ET), cents. */
+  capitalDeployedTodayCents: number;
+  /** Net realized PROFIT today (>= 0; 0 when flat or down), cents. */
+  realizedProfitTodayCents: number;
+  /** Max capital to deploy per ET day; null = no cap. */
+  capCents: number | null;
+  /** Profit-lock threshold; null = no target. */
+  profitTargetCents: number | null;
+  /** When false, the profit-lock never engages even past the target. */
+  profitLockEnabled: boolean;
 }
 
 export type ExecutionDecision =
@@ -102,6 +124,19 @@ export function decideExecution(input: ExecutionInputs): ExecutionDecision {
   }
   const profile = RISK_PROFILE_DEFAULTS[input.riskProfile];
 
+  // 0) Owner daily controls — profit-lock first (independent of size): once the
+  // day's realized profit reaches the target, stop opening NEW positions and
+  // hold to lock the gain. HOLD (transient) — resumes at the ET-day rollover.
+  const daily = input.dailyControls;
+  if (
+    daily &&
+    daily.profitLockEnabled &&
+    daily.profitTargetCents !== null &&
+    daily.realizedProfitTodayCents >= daily.profitTargetCents
+  ) {
+    return { action: "hold", reasons: ["PROFIT_LOCK"] };
+  }
+
   // 1) Re-size against fresh account state; cap at the authorized ceiling.
   const sizing = calculatePositionSize({
     accountEquityCents: input.accountEquityCents,
@@ -125,6 +160,17 @@ export function decideExecution(input: ExecutionInputs): ExecutionDecision {
 
   // 2) Re-run the deterministic risk engine with the FINAL quantity.
   const estimatedCostCents = finalQuantity * input.entryPriceCents;
+
+  // Daily capital cap: this entry's notional must fit within today's remaining
+  // budget. Checked against the FINAL (sized) notional so it gates real dollars.
+  // HOLD (transient) — the cap resets at the ET-day rollover.
+  if (
+    daily &&
+    daily.capCents !== null &&
+    daily.capitalDeployedTodayCents + estimatedCostCents > daily.capCents
+  ) {
+    return { action: "hold", reasons: ["DAILY_CAPITAL_CAP"] };
+  }
   const priceMovePercentSinceSignal =
     input.currentMidCents !== null && input.entryPriceCents > 0
       ? ((input.currentMidCents - input.entryPriceCents) / input.entryPriceCents) * 100

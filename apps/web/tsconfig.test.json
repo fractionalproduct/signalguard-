@@ -42,12 +42,16 @@
     "lib/proposal-detail-view.test.ts",
     "lib/execution-decision.ts",
     "lib/execution-decision.test.ts",
+    "lib/auto-approval.ts",
+    "lib/auto-approval.test.ts",
     "lib/position-monitor-flag.ts",
     "lib/position-monitor-flag.test.ts",
     "lib/notifications-view.ts",
     "lib/notifications-view.test.ts",
     "lib/briefing-email.test.ts",
     "lib/performance-view.ts",
-    "lib/performance-view.test.ts"
+    "lib/performance-view.test.ts",
+    "lib/today-view.ts",
+    "lib/today-view.test.ts"
   ]
 }

@@ -6,6 +6,7 @@ import {
   createPaperExecutionClientFromEnv,
 } from "@signalguard/broker-adapters";
 import {
+  getAutopilotConfig,
   getDb,
   getProposalById,
   isEmergencyStopActive,
@@ -14,7 +15,12 @@ import {
   transitionOrderState,
 } from "@signalguard/database";
 import { classifySession } from "@signalguard/market-sessions";
-import { realizedLossWindows, realizedPnL } from "@signalguard/performance";
+import {
+  realizedLossWindows,
+  realizedNetTodayCents,
+  realizedPnL,
+  sumCentsOnEtDay,
+} from "@signalguard/performance";
 import { currentInvestedCentsFromLongPositions } from "@signalguard/proposals";
 import { isAuthorizedCronRequest } from "../../../../lib/cron-auth";
 import { decideExecution } from "../../../../lib/execution-decision";
@@ -111,6 +117,7 @@ export async function GET(req: Request): Promise<Response> {
   // unsafe direction. Net realized P&L per closed position (one number per
   // position; partial exit fills collapse) is bucketed into ET day/week/month.
   let lossWindows;
+  let dailyControls;
   try {
     const closed = await listClosedPositionsWithExitFills(db, 200);
     const trades = closed.map((c) => ({
@@ -124,10 +131,30 @@ export async function GET(req: Request): Promise<Response> {
       ),
     }));
     lossWindows = realizedLossWindows(trades);
+
+    // Owner daily controls (capital cap + profit-lock). Read the config and the
+    // day's running ledger in the same fail-closed block: capital DEPLOYED today
+    // = gross entry notional of ENTRY orders committed today (sent or filled),
+    // and realized PROFIT today = the positive part of net realized P&L today.
+    const config = await getAutopilotConfig(db);
+    const recentOrders = await listOrders(db, { limit: 200 });
+    const COMMITTED = new Set(["SUBMITTED", "ACCEPTED", "PARTIALLY_FILLED", "FILLED"]);
+    const capitalDeployedTodayCents = sumCentsOnEtDay(
+      recentOrders
+        .filter((o) => o.orderKind === "ENTRY" && COMMITTED.has(o.status))
+        .map((o) => ({ atMs: o.createdAt.getTime(), cents: o.quantity * o.entryPriceCents })),
+    );
+    dailyControls = {
+      capitalDeployedTodayCents,
+      realizedProfitTodayCents: Math.max(0, realizedNetTodayCents(trades)),
+      capCents: config.dailyCapitalCapCents,
+      profitTargetCents: config.dailyProfitTargetCents,
+      profitLockEnabled: config.profitLockEnabled,
+    };
   } catch (err) {
-    console.error("[cron/execute-orders] realized-loss read failed:", err);
+    console.error("[cron/execute-orders] daily-state read failed:", err);
     return NextResponse.json(
-      { ok: false, error: "loss_state_unreadable" },
+      { ok: false, error: "daily_state_unreadable" },
       { status: 503 },
     );
   }
@@ -158,6 +185,7 @@ export async function GET(req: Request): Promise<Response> {
     realizedLossTodayCents: lossWindows.todayLossCents,
     realizedLossWeekCents: lossWindows.weekLossCents,
     realizedLossMonthCents: lossWindows.monthLossCents,
+    dailyControls,
   });
 
   if (decision.action === "hold") {
