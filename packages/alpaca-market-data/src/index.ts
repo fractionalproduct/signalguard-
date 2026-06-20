@@ -19,3 +19,30 @@ export type {
   AlpacaSnapshotResponse,
   AlpacaTradeWire,
 } from "./wire.js";
+export {
+  formatOccSymbol,
+  parseOccSymbol,
+  type OccSymbolParts,
+  type OptionRight,
+} from "./occ.js";
+export {
+  dteFromExpiration,
+  optionMarkCents,
+  optionSpreadBps,
+} from "./option-math.js";
+export {
+  AlpacaOptionsData,
+  createAlpacaOptionsDataFromEnv,
+  type AlpacaOptionsDataConfig,
+  type OptionContractInfo,
+  type OptionSnapshot,
+} from "./alpaca-options-data.js";
+export type {
+  AlpacaOptionContractsResponse,
+  AlpacaOptionContractWire,
+  AlpacaOptionGreeksWire,
+  AlpacaOptionQuoteWire,
+  AlpacaOptionSnapshotsResponse,
+  AlpacaOptionSnapshotWire,
+  AlpacaOptionTradeWire,
+} from "./wire-options.js";
