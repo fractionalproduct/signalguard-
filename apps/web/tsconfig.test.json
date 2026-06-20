@@ -66,6 +66,8 @@
     "lib/option-sync.ts",
     "lib/option-sync.test.ts",
     "lib/option-risk.ts",
-    "lib/option-risk.test.ts"
+    "lib/option-risk.test.ts",
+    "lib/option-exit.ts",
+    "lib/option-exit.test.ts"
   ]
 }

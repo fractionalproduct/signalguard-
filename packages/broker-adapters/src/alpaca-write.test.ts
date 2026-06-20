@@ -272,6 +272,92 @@ test("cancelOrder issues a DELETE to the order path", async () => {
   assert.ok(calledUrl.includes("/v2/orders/ord-1"));
 });
 
+test("submitOptionSellToClose POSTs a SELL limit on the OCC symbol", async () => {
+  let sent: Record<string, unknown> | undefined;
+  const client = new AlpacaPaperExecutionClient({
+    keyId: "k",
+    secretKey: "s",
+    baseUrl: PAPER_URL,
+    fetchImpl: fakeFetch([
+      {
+        match: "/v2/orders",
+        method: "POST",
+        capture: (b) => {
+          sent = b as Record<string, unknown>;
+        },
+        json: {
+          id: "optx-1",
+          client_order_id: "sg-optx-pos1",
+          symbol: "META260718C00720000",
+          side: "sell",
+          type: "limit",
+          qty: "2",
+          filled_qty: "0",
+          status: "new",
+          filled_avg_price: null,
+        },
+      },
+    ]),
+  });
+
+  const order = await client.submitOptionSellToClose({
+    clientOrderId: "sg-optx-pos1",
+    symbol: "META260718C00720000",
+    quantity: 2,
+    limitPriceCents: 510,
+    timeInForce: "DAY",
+  });
+  assert.equal(sent?.side, "sell");
+  assert.equal(sent?.type, "limit");
+  assert.equal(sent?.symbol, "META260718C00720000");
+  assert.equal(sent?.qty, "2");
+  assert.equal(sent?.limit_price, "5.10");
+  assert.equal(sent?.time_in_force, "day");
+  assert.equal(order.brokerOrderId, "optx-1");
+  assert.equal(order.side, "sell");
+});
+
+test("submitOptionSellToClose is idempotent: duplicate 422 resolves to existing", async () => {
+  const client = new AlpacaPaperExecutionClient({
+    keyId: "k",
+    secretKey: "s",
+    baseUrl: PAPER_URL,
+    fetchImpl: fakeFetch([
+      {
+        match: "/v2/orders",
+        method: "POST",
+        status: 422,
+        json: { message: "client_order_id must be unique" },
+      },
+      {
+        match: "/v2/orders:by_client_order_id",
+        method: "GET",
+        json: {
+          id: "optx-existing",
+          client_order_id: "sg-optx-pos1",
+          symbol: "META260718C00720000",
+          side: "sell",
+          type: "limit",
+          qty: "2",
+          filled_qty: "2",
+          status: "filled",
+          filled_avg_price: "5.10",
+        },
+      },
+    ]),
+  });
+
+  const order = await client.submitOptionSellToClose({
+    clientOrderId: "sg-optx-pos1",
+    symbol: "META260718C00720000",
+    quantity: 2,
+    limitPriceCents: 510,
+    timeInForce: "DAY",
+  });
+  assert.equal(order.brokerOrderId, "optx-existing");
+  assert.equal(order.status, "filled");
+});
+
 test("submitOrder refuses a non-BUY side", async () => {
   const client = new AlpacaPaperExecutionClient({
     keyId: "k",

@@ -53,6 +53,39 @@ test("submitOcoExit is idempotent — repeat returns the same legs, no new order
   assert.equal(broker.size, sizeBefore);
 });
 
+test("submitOptionSellToClose creates a SELL limit order (held-long exit)", async () => {
+  const broker = new InMemoryExecutionBroker();
+  const order = await broker.submitOptionSellToClose({
+    clientOrderId: "sg-optx-pos1",
+    symbol: "META260718C00720000",
+    quantity: 2,
+    limitPriceCents: 510,
+    timeInForce: "DAY",
+  });
+  assert.equal(order.side, "sell");
+  assert.equal(order.type, "limit");
+  assert.equal(order.symbol, "META260718C00720000");
+  assert.equal(order.quantity, 2);
+  assert.equal(order.status, "new");
+  assert.equal(order.filledQuantity, 0);
+  assert.equal(broker.size, 1);
+});
+
+test("submitOptionSellToClose is idempotent on clientOrderId (no duplicate)", async () => {
+  const broker = new InMemoryExecutionBroker();
+  const sell = {
+    clientOrderId: "sg-optx-pos1",
+    symbol: "META260718C00720000",
+    quantity: 2,
+    limitPriceCents: 510,
+    timeInForce: "DAY" as const,
+  };
+  const first = await broker.submitOptionSellToClose(sell);
+  const second = await broker.submitOptionSellToClose(sell);
+  assert.equal(second.brokerOrderId, first.brokerOrderId);
+  assert.equal(broker.size, 1);
+});
+
 test("submitOrder creates an order with new/0-filled state", async () => {
   const broker = new InMemoryExecutionBroker();
   const order = await broker.submitOrder(marketBuy);

@@ -4,6 +4,7 @@ import type {
   Cents,
   OcoExitResult,
   SubmitOcoExitInput,
+  SubmitOptionSellToCloseInput,
   SubmitOrderInput,
 } from "./types.js";
 
@@ -116,6 +117,40 @@ export class InMemoryExecutionBroker implements BrokerWriteClient {
     const target = mkLeg(input.targetClientOrderId, "limit");
     const stop = mkLeg(input.stopClientOrderId, "stop");
     return { parentBrokerOrderId, stop: { ...stop }, target: { ...target } };
+  }
+
+  async submitOptionSellToClose(
+    input: SubmitOptionSellToCloseInput,
+  ): Promise<BrokerOrder> {
+    if (input.limitPriceCents === undefined || input.limitPriceCents === null) {
+      throw new Error(
+        "Refusing to submit: option sell-to-close requires limitPriceCents (limit-only).",
+      );
+    }
+
+    // Idempotency: same clientOrderId resolves to the existing order, no dup.
+    const existing = this.byClientId.get(input.clientOrderId);
+    if (existing) return { ...existing };
+
+    // EXIT of a held long (sell side). No long-only-BUY guard here — that rail
+    // is for entries (never open a short); this is the matching close.
+    const brokerOrderId = this.nextBrokerOrderId();
+    const order: BrokerOrder = {
+      brokerOrderId,
+      clientOrderId: input.clientOrderId,
+      symbol: input.symbol,
+      side: "sell",
+      type: "limit",
+      quantity: input.quantity,
+      filledQuantity: 0,
+      status: "new",
+      filledAvgPriceCents: null,
+      submittedAt: new Date().toISOString(),
+      filledAt: null,
+    };
+    this.byClientId.set(input.clientOrderId, order);
+    this.brokerIdToClientId.set(brokerOrderId, input.clientOrderId);
+    return { ...order };
   }
 
   async getOrderByClientId(clientOrderId: string): Promise<BrokerOrder | null> {

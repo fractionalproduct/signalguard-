@@ -37,6 +37,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/option-exits",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/evening-briefing",
       "schedule": "0 22 * * *"
     }
