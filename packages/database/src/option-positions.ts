@@ -64,9 +64,24 @@ export interface OptionPositionWithContract {
 }
 
 /**
+ * Set an option position's lifecycle status. Moving to CLOSED stamps closedAt
+ * (the broker no longer holds it — filled-to-close or expired). Used by the
+ * option-monitor reconcile.
+ */
+export async function setOptionPositionStatus(
+  db: PrismaClient,
+  id: string,
+  status: "OPEN" | "CLOSING" | "CLOSED",
+): Promise<void> {
+  await db.optionPosition.update({
+    where: { id },
+    data: { status, ...(status === "CLOSED" ? { closedAt: new Date() } : {}) },
+  });
+}
+
+/**
  * Open (OPEN / CLOSING) long option positions with their contract, newest
- * first. Read-only for M17 Slice 1 — there is no writer yet, so this returns []
- * until manual options trading lands (Slice 3).
+ * first. Populated once the option-monitor reconcile syncs a filled buy-to-open.
  */
 export async function listOpenOptionPositions(
   db: PrismaClient,
