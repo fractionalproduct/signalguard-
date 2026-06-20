@@ -46,6 +46,8 @@
     "lib/auto-approval.test.ts",
     "lib/manipulation-risk.ts",
     "lib/manipulation-risk.test.ts",
+    "lib/trade-analysis.ts",
+    "lib/trade-analysis.test.ts",
     "lib/position-monitor-flag.ts",
     "lib/position-monitor-flag.test.ts",
     "lib/notifications-view.ts",

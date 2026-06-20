@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { SELECTABLE_RISK_PROFILES } from "@signalguard/proposals";
 import {
@@ -11,6 +12,7 @@ import {
 } from "../(dashboard)/proposals/actions";
 import type { ProposalsState } from "../../lib/proposals";
 import type { ProposalRow } from "../../lib/proposals-view";
+import { ApproveAvoidButton } from "./ApproveAvoidButton";
 
 /**
  * List of recent trade proposals. Each row links to the per-symbol
@@ -92,6 +94,7 @@ function ProposalsTable({ rows }: { rows: ReadonlyArray<ProposalRow> }) {
         <tr>
           <th>Created</th>
           <th>Symbol</th>
+          <th>Verdict</th>
           <th>Risk profile</th>
           <th>Entry</th>
           <th>Stop</th>
@@ -107,8 +110,11 @@ function ProposalsTable({ rows }: { rows: ReadonlyArray<ProposalRow> }) {
         </tr>
       </thead>
       <tbody>
-        {rows.map((row) => (
-          <tr key={row.id}>
+        {rows.map((row) => {
+          const isAvoid = row.analysis.verdict === "AVOID";
+          return (
+          <Fragment key={row.id}>
+          <tr className={isAvoid ? "proposal-row--avoid" : undefined}>
             <td title={row.createdAt}>
               <Link
                 href={`/proposals/${row.id}`}
@@ -124,6 +130,9 @@ function ProposalsTable({ rows }: { rows: ReadonlyArray<ProposalRow> }) {
               >
                 <strong>{row.symbol}</strong>
               </Link>
+            </td>
+            <td>
+              <VerdictBadge analysis={row.analysis} />
             </td>
             <td>
               <RiskProfileCell row={row} />
@@ -176,9 +185,53 @@ function ProposalsTable({ rows }: { rows: ReadonlyArray<ProposalRow> }) {
               <ProposalActions row={row} />
             </td>
           </tr>
-        ))}
+          <tr
+            className={
+              isAvoid
+                ? "proposal-detail-row proposal-detail-row--avoid"
+                : "proposal-detail-row"
+            }
+          >
+            <td colSpan={15}>
+              <AnalysisDetail row={row} />
+            </td>
+          </tr>
+          </Fragment>
+          );
+        })}
       </tbody>
     </table>
+  );
+}
+
+function VerdictBadge({ analysis }: { analysis: ProposalRow["analysis"] }) {
+  const verdict = analysis.verdict;
+  const cls =
+    verdict === "PASS"
+      ? "verdict-badge verdict-badge--pass"
+      : verdict === "CAUTION"
+        ? "verdict-badge verdict-badge--caution"
+        : "verdict-badge verdict-badge--avoid";
+  return (
+    <span className={cls} aria-label={`Verdict ${verdict}, score ${analysis.score}`}>
+      {verdict} · {analysis.score}
+    </span>
+  );
+}
+
+function AnalysisDetail({ row }: { row: ProposalRow }) {
+  const { analysis } = row;
+  return (
+    <div className="analysis-detail">
+      <span className="analysis-headline">{analysis.headline}</span>
+      {analysis.risks.length > 0 && (
+        <ul className="analysis-risks" aria-label={`Risk flags for ${row.symbol}`}>
+          {analysis.risks.map((risk) => (
+            <li key={risk}>{risk}</li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -211,16 +264,24 @@ function ProposalActions({ row }: { row: ProposalRow }) {
   if (row.actionable) {
     return (
       <div className="action-buttons">
-        <form action={approveProposalAction}>
-          <input type="hidden" name="proposalId" value={row.id} />
-          <button
-            type="submit"
-            className="btn-approve"
-            aria-label={`Approve ${row.symbol} proposal`}
-          >
-            Approve
-          </button>
-        </form>
+        {row.analysis.verdict === "AVOID" ? (
+          <ApproveAvoidButton
+            proposalId={row.id}
+            symbol={row.symbol}
+            topRisk={row.analysis.risks[0] ?? "structurally unsound"}
+          />
+        ) : (
+          <form action={approveProposalAction}>
+            <input type="hidden" name="proposalId" value={row.id} />
+            <button
+              type="submit"
+              className="btn-approve"
+              aria-label={`Approve ${row.symbol} proposal`}
+            >
+              Approve
+            </button>
+          </form>
+        )}
         <form action={rejectProposalAction}>
           <input type="hidden" name="proposalId" value={row.id} />
           <button
