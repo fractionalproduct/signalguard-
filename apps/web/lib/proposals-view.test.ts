@@ -25,6 +25,7 @@ function proposal(
     status: "DRAFT",
     quantity: null,
     notes: null,
+    source: "DETERMINISTIC",
     expiresAt: new Date("2026-06-19T12:00:00.000Z"),
     createdAt: new Date("2026-06-18T11:55:00.000Z"),
     updatedAt: new Date("2026-06-18T11:55:00.000Z"),
