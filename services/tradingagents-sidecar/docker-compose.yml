@@ -1,0 +1,64 @@
+# Hardened run config for the TradingAgents sidecar.
+# Mirrors the container-lockdown controls in docs/tradingagents-supply-chain-review.md
+# (M2 + control 4). The host firewall MUST additionally enforce the egress
+# allowlist below — compose cannot express egress rules.
+#
+# ============================================================================
+# EGRESS ALLOWLIST — enforce on the HOST firewall (default-deny), control 2.
+# ============================================================================
+# ALLOW (outbound) only:
+#   - exactly ONE chosen Western LLM host:
+#       api.openai.com   OR   api.anthropic.com   OR   generativelanguage.googleapis.com
+#       (Gemini)   OR   api.x.ai (Grok)   OR   nothing, if using local Ollama
+#   - market/news data hosts TradingAgents actually calls:
+#       query1.finance.yahoo.com / query2.finance.yahoo.com (Yahoo),
+#       www.alphavantage.co (AlphaVantage), api.stlouisfed.org (FRED),
+#       oauth.reddit.com / www.reddit.com (Reddit), api.stocktwits.com (StockTwits)
+#   - the SignalGuard ingest host (your Vercel domain) for the candidate POST
+#   - files.pythonhosted.org + pypi.org (build/deps only; can be denied at runtime)
+# BLOCK (must be unreachable) — Chinese LLM + phone-home:
+#       *.aliyuncs.com  (Qwen/Alibaba)
+#       api.deepseek.com  (DeepSeek)
+#       api.z.ai  /  open.bigmodel.cn  (GLM/Zhipu)
+#       api.minimax*.com  (MiniMax)
+#       api.moonshot.ai  (Kimi/Moonshot, Beijing)
+#       api.tauric.ai  (TradingAgents CLI phone-home — L1)
+# ============================================================================
+
+services:
+  tradingagents-sidecar:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tradingagents-sidecar:latest
+
+    # ONLY one LLM key + the ingest token live here. NEVER app/DB/broker creds.
+    # See .env.example.
+    env_file: .env
+
+    # --- Container lockdown (M2 / control 4) ---------------------------------
+    read_only: true            # root FS immutable
+    cap_drop:
+      - ALL                    # drop every Linux capability
+    security_opt:
+      - no-new-privileges:true # no setuid escalation
+    pids_limit: 256            # cap process explosion
+    mem_limit: 2g              # cap memory (debate loops can be heavy)
+    # cpus: "1.0"              # optional: cap CPU on the host as well
+
+    # The ONLY writable path: TradingAgents' cache dir. Everything else is RO.
+    # tmpfs keeps it ephemeral (nothing persists across runs); swap for a named
+    # volume if you want the cache to survive restarts.
+    tmpfs:
+      - /home/tauser/.tradingagents:size=512m,uid=10001,gid=10001
+    # Also give /tmp a small writable tmpfs (libs may need it under read_only).
+    # tmpfs:
+    #   - /tmp:size=64m
+
+    # Run-once-and-exit semantics; let the host scheduler (cron / systemd timer)
+    # invoke `docker compose run` on the desired cadence. `no` avoids a hot loop.
+    restart: "no"
+
+    # Defence in depth: even with the host firewall allowlist, do not expose any
+    # ports — this service only makes OUTBOUND calls.
+    # (no `ports:` block by design)

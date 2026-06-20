@@ -1,0 +1,30 @@
+# ============================================================================
+# PLACEHOLDER — DO NOT SHIP AS-IS. This file MUST be regenerated.
+# ============================================================================
+#
+# The supply-chain review (docs/tradingagents-supply-chain-review.md, H1) found
+# that TradingAgents installs its ~200-package langchain dependency tree UNPINNED
+# on the documented `pip install .` path. We pin + hash-audit ourselves.
+#
+# How to produce the real file (on a host with the audited TradingAgents
+# checkout + uv):
+#
+#   1. From the TradingAgents repo root, regenerate / verify the lock:
+#        uv lock
+#   2. Export a fully-pinned, hashed requirements file:
+#        uv export --format requirements-txt --no-dev > requirements.txt
+#      (this yields `pkg==x.y.z --hash=sha256:...` lines that
+#       `pip install --require-hashes` enforces; see the Dockerfile)
+#   3. Audit it BEFORE building / before any version bump:
+#        pip-audit -r requirements.txt
+#        osv-scanner --lockfile requirements.txt
+#      Resolve every advisory; re-scan on every dependency bump.
+#   4. Add the TradingAgents package itself (and its hash) to the export, OR
+#      install it as a separate, hashed, pinned line — never `pip install .`
+#      from an unpinned tree.
+#
+# Until the steps above are done this file is intentionally empty of real
+# dependencies so a build using it fails loudly rather than installing unpinned.
+#
+# (`pip install --require-hashes` rejects ANY unhashed requirement, so leaving
+# this as comments-only forces the operator to generate the real, hashed file.)
