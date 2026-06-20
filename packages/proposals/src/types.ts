@@ -21,4 +21,8 @@ export interface ProposalDraft {
   confidence: ConfidenceLabel;
   notes: string | null;
   expiresAt: Date | null;
+  /** Provenance: what produced this proposal. "DETERMINISTIC" (M9 scan, the
+   * default) | "TRADING_AGENTS" (LLM symbol nominator, re-scanned by us).
+   * Display + audit only — the gate, sizing, and risk engine stay source-blind. */
+  source?: string;
 }

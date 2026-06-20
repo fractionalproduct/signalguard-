@@ -474,6 +474,10 @@ model TradeProposal {
   // clearance to trade.
   quantity          Int?
   notes             String?
+  /// Provenance: "DETERMINISTIC" (M9 scan, default) | "TRADING_AGENTS" (LLM
+  /// symbol nominator, re-scanned by us). A string (not enum) so new sources are
+  /// migration-free. NEVER changes how the gate/sizing/risk engine treat the row.
+  source            String              @default("DETERMINISTIC")
   expiresAt         DateTime?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
@@ -482,6 +486,7 @@ model TradeProposal {
 
   @@index([symbol, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
+  @@index([source, createdAt(sort: Desc)])
 }
 
 /// M12 paper order lifecycle state. Mirrors OrderState in @signalguard/orders —
