@@ -33,6 +33,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/option-monitor",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/evening-briefing",
       "schedule": "0 22 * * *"
     }

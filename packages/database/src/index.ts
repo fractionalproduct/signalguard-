@@ -75,6 +75,7 @@ export {
 export {
   listOpenOptionPositions,
   openOptionPosition,
+  setOptionPositionStatus,
   type OptionPositionWithContract,
   type OpenOptionPositionInput,
 } from "./option-positions.js";
