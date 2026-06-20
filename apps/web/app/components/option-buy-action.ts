@@ -7,12 +7,9 @@ import {
   createAlpacaOptionsDataFromEnv,
   parseOccSymbol,
 } from "@signalguard/alpaca-market-data";
-import { createNotification, getDb } from "@signalguard/database";
+import { createNotification, getDb, getOptionConfig } from "@signalguard/database";
 import { getCurrentOwner } from "../../lib/session";
-import {
-  DEFAULT_OPTION_RISK_CONFIG,
-  evaluateOptionEntry,
-} from "../../lib/option-risk";
+import { evaluateOptionEntry } from "../../lib/option-risk";
 
 /**
  * Manual long-option buy (paper). The owner supplies an OCC contract symbol + a
@@ -65,6 +62,7 @@ export async function buyOptionAction(formData: FormData): Promise<void> {
   }
 
   const riskBudgetCents = Math.round(budgetDollars * 100);
+  const config = await getOptionConfig(db); // owner-configurable thresholds
   const decision = evaluateOptionEntry(
     {
       contract: {
@@ -78,7 +76,7 @@ export async function buyOptionAction(formData: FormData): Promise<void> {
       requestedContracts: Number.MAX_SAFE_INTEGER,
       riskBudgetCents,
     },
-    DEFAULT_OPTION_RISK_CONFIG,
+    config,
   );
 
   if (decision.decision === "BLOCK") {

@@ -5,6 +5,7 @@ import { createPaperExecutionClientFromEnv } from "@signalguard/broker-adapters"
 import {
   createNotification,
   getDb,
+  getOptionConfig,
   isEmergencyStopActive,
   listOpenOptionPositions,
   setOptionPositionStatus,
@@ -67,6 +68,7 @@ export async function GET(req: Request): Promise<Response> {
   const optionsData = createAlpacaOptionsDataFromEnv();
 
   const rows = await listOpenOptionPositions(db);
+  const config = await getOptionConfig(db); // owner-configurable exit thresholds
   let evaluated = 0;
   let exitsSubmitted = 0;
 
@@ -90,12 +92,15 @@ export async function GET(req: Request): Promise<Response> {
       }
       const markCents = snap?.markCents ?? 0;
 
-      const decision = decideOptionExit({
-        entryPremiumCents: position.avgPremiumPaidCents,
-        markCents,
-        expiration: contract.expiration,
-        emergencyStopActive,
-      });
+      const decision = decideOptionExit(
+        {
+          entryPremiumCents: position.avgPremiumPaidCents,
+          markCents,
+          expiration: contract.expiration,
+          emergencyStopActive,
+        },
+        config,
+      );
 
       if (!decision.exit) {
         if (decision.warnings.includes("SOFT_STOP")) {

@@ -81,6 +81,13 @@ export {
 } from "./option-positions.js";
 export { listRecentAuditEvents } from "./audit-events.js";
 export {
+  getOptionConfig,
+  setOptionConfig,
+  OPTION_CONFIG_DEFAULTS,
+  type OptionConfig,
+  type OptionConfigPatch,
+} from "./option-config.js";
+export {
   openPosition,
   openPositionFromFilledEntry,
   getPositionById,

@@ -202,6 +202,34 @@ model OptionPosition {
   @@index([status, openedAt])
 }
 
+/// Owner-configurable options risk + exit thresholds (M17). Singleton, mirroring
+/// AutopilotConfig. A superset of the lib OptionRiskConfig + OptionExitConfig, so
+/// the row can be passed straight to evaluateOptionEntry + decideOptionExit.
+/// Defaults match the lib DEFAULT_OPTION_RISK_CONFIG / DEFAULT_OPTION_EXIT_CONFIG.
+model OptionConfig {
+  id String @id @default("global")
+
+  // Entry risk gate
+  minDte                  Int    @default(7)
+  maxDte                  Int    @default(45)
+  maxSpreadBps            Int    @default(800)
+  minOpenInterest         Int    @default(500)
+  minPremiumCents         Int    @default(10)
+  maxPremiumPerTradeCents Int    @default(50000)
+  minMarkCents            Int    @default(10)
+  /// IV caution ceiling (percent). Null = IV gate disabled.
+  maxIvPercent            Float?
+
+  // Exits
+  mustCloseByDte  Int   @default(3)
+  profitTargetPct Float @default(0.4)
+  timeStopDte     Int   @default(5)
+  softStopPct     Float @default(0.5)
+
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
 /// A trade-symbol candidate from the TradingAgents sidecar
 /// (docs/tradingagents-integration-review.md). The sidecar WRITES these; the
 /// ta-ingest cron consumes NEW ones, runs OUR M9 scan on the symbol, and creates
