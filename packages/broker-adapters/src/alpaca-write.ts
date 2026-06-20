@@ -4,6 +4,7 @@ import type {
   BrokerWriteClient,
   OcoExitResult,
   SubmitOcoExitInput,
+  SubmitOptionSellToCloseInput,
   SubmitOrderInput,
 } from "./types.js";
 
@@ -222,6 +223,58 @@ export class AlpacaPaperExecutionClient implements BrokerWriteClient {
       .map(mapOrder)
       .find((o) => o.type.startsWith("stop")) ?? target;
     return { parentBrokerOrderId, target, stop };
+  }
+
+  /**
+   * Sell-to-close a HELD long option (M17 exit controller). Mirrors
+   * `submitOrder`'s request/auth/idempotency, but submits side "sell",
+   * type "limit", on an OCC option symbol.
+   *
+   * IMPORTANT: this is the EXIT of a long the account already holds — selling it
+   * back reduces the position toward flat and can NEVER open a short. That is
+   * why it deliberately does NOT carry `submitOrder`'s `side !== "BUY"` guard:
+   * that guard is the long-only ENTRY rail (no opening shorts); this is the
+   * matching SELL on the way out. Limit-only — options forbid market/stop.
+   */
+  async submitOptionSellToClose(
+    input: SubmitOptionSellToCloseInput,
+  ): Promise<BrokerOrder> {
+    if (input.limitPriceCents === undefined || input.limitPriceCents === null) {
+      throw new Error(
+        "Refusing to submit: option sell-to-close requires limitPriceCents (limit-only).",
+      );
+    }
+
+    const payload: Record<string, unknown> = {
+      client_order_id: input.clientOrderId,
+      symbol: input.symbol,
+      qty: String(input.quantity),
+      side: "sell",
+      type: "limit",
+      time_in_force: input.timeInForce.toLowerCase(),
+      limit_price: fromCents(input.limitPriceCents),
+    };
+
+    try {
+      const { body } = await this.request<Record<string, unknown>>(
+        "POST",
+        "/v2/orders",
+        payload,
+      );
+      return mapOrder(body);
+    } catch (err) {
+      if (err instanceof AlpacaHttpError && isDuplicateClientOrderId(err)) {
+        // Idempotency: the broker already has this client_order_id. Resolve to
+        // the existing order instead of creating a duplicate. Never fabricate.
+        const existing = await this.getOrderByClientId(input.clientOrderId);
+        if (existing) return existing;
+        throw new Error(
+          `Alpaca reported duplicate client_order_id "${input.clientOrderId}" but the order ` +
+            "could not be found on lookup. Refusing to resubmit (unknown broker state).",
+        );
+      }
+      throw err;
+    }
   }
 
   async getOrderByClientId(clientOrderId: string): Promise<BrokerOrder | null> {

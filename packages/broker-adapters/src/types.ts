@@ -121,6 +121,27 @@ export interface OcoExitResult {
 }
 
 /**
+ * Sell-to-close a HELD long option (M17 exit controller). This is an EXIT on a
+ * position the account already owns — it reduces a long toward flat, it can
+ * NEVER open a short. That is exactly why it does not go through `submitOrder`'s
+ * long-only-BUY rail: that guard protects the ENTRY path from ever shorting;
+ * this is the matching SELL on the way out (profit-take / time-stop / mandatory
+ * pre-expiry close). Limit-only by design — options forbid market/stop (wide,
+ * fragile spreads). Idempotent on `clientOrderId`, like every other submission.
+ */
+export interface SubmitOptionSellToCloseInput {
+  /** Idempotency key, e.g. `sg-optx-{positionId}`. */
+  clientOrderId: string;
+  /** The OCC option symbol of the held contract. */
+  symbol: string;
+  /** Contracts to sell to close. The caller enforces `<= contracts held`. */
+  quantity: number;
+  /** Limit premium per share, integer cents (marketable at/near the bid). */
+  limitPriceCents: Cents;
+  timeInForce: "DAY" | "GTC";
+}
+
+/**
  * Write access for the isolated restricted trading worker ONLY — the sole
  * service near broker credentials. Kept as a SEPARATE interface from
  * BrokerReadClient so read and write stay cleanly split (read methods
@@ -138,6 +159,15 @@ export interface BrokerWriteClient {
    * with the same leg keys resolves to the existing pair, never a duplicate.
    */
   submitOcoExit(input: SubmitOcoExitInput): Promise<OcoExitResult>;
+  /**
+   * Sell-to-close a HELD long option (M17). **Idempotent on `clientOrderId`**:
+   * a repeat resolves to the existing order, never a duplicate. This is an EXIT
+   * (reduces a long toward flat), NOT a short entry — see
+   * {@link SubmitOptionSellToCloseInput}.
+   */
+  submitOptionSellToClose(
+    input: SubmitOptionSellToCloseInput,
+  ): Promise<BrokerOrder>;
   /** Look up an order by its client (idempotency) id, or null if none exists. */
   getOrderByClientId(clientOrderId: string): Promise<BrokerOrder | null>;
   /** Cancel an unfilled order by its broker-assigned id. */
