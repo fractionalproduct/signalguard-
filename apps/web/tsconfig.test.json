@@ -58,6 +58,8 @@
     "lib/today-view.ts",
     "lib/today-view.test.ts",
     "lib/benchmark-view.ts",
-    "lib/benchmark-view.test.ts"
+    "lib/benchmark-view.test.ts",
+    "lib/options-view.ts",
+    "lib/options-view.test.ts"
   ]
 }
