@@ -11,6 +11,7 @@ import {
   getProposalById,
   isEmergencyStopActive,
   listClosedPositionsWithExitFills,
+  listLatestWatchlistSnapshots,
   listOrders,
   transitionOrderState,
 } from "@signalguard/database";
@@ -24,6 +25,7 @@ import {
 import { currentInvestedCentsFromLongPositions } from "@signalguard/proposals";
 import { isAuthorizedCronRequest } from "../../../../lib/cron-auth";
 import { decideExecution } from "../../../../lib/execution-decision";
+import { manipulationRiskFromFlags } from "../../../../lib/manipulation-risk";
 
 /**
  * Restricted execution worker, as a Vercel Cron route (M12 slice 4). Submits at
@@ -106,6 +108,20 @@ export async function GET(req: Request): Promise<Response> {
   const quote = marketData ? await marketData.getQuote(order.symbol) : null;
   const currentMidCents =
     quote ? Math.round((quote.bidCents + quote.askCents) / 2) : null;
+
+  // Real manipulation risk from the symbol's latest M7 snapshot (was hardcoded
+  // "low"). A snapshot-read failure must NOT block trading — default to "low"
+  // (no worse than before), since this gate hardens, not gatekeeps.
+  let manipulationRisk: "low" | "elevated" | "high" = "low";
+  try {
+    const [latestSnap] = await listLatestWatchlistSnapshots(db, {
+      symbol: order.symbol,
+      limit: 1,
+    });
+    manipulationRisk = manipulationRiskFromFlags(latestSnap ?? null);
+  } catch (err) {
+    console.error("[cron/execute-orders] manipulation snapshot read failed:", err);
+  }
   const spreadBps =
     quote && currentMidCents && currentMidCents > 0
       ? ((quote.askCents - quote.bidCents) / currentMidCents) * 10_000
@@ -180,7 +196,7 @@ export async function GET(req: Request): Promise<Response> {
     marketSession: classifySession(new Date(), {}),
     currentMidCents,
     bidAskSpreadBps: spreadBps,
-    manipulationRisk: "low", // wired from M7 snapshots in a follow-up
+    manipulationRisk,
     symbol: order.symbol,
     realizedLossTodayCents: lossWindows.todayLossCents,
     realizedLossWeekCents: lossWindows.weekLossCents,
