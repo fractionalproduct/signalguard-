@@ -151,6 +151,57 @@ model AutopilotConfig {
   updatedAt DateTime @updatedAt
 }
 
+/// A tradable option contract (long single-leg, M17 — docs/options-scope.md).
+/// Equity tables are deliberately untouched; options live in their own Option*
+/// models so no equity code path branches on multiplier / expiry / option
+/// semantics. Money in integer cents.
+model OptionContract {
+  id String @id @default(cuid())
+  /// Canonical OCC symbol, e.g. "META260718C00720000". Unique.
+  occSymbol String @unique
+  /// Equity ticker the option is on, e.g. "META" (SAME universe as equities).
+  underlying String
+  /// "CALL" | "PUT".
+  right String
+  /// Strike price in integer cents (e.g. $720.00 -> 72000).
+  strikeCents Int
+  /// Expiration date (the option dies at this date's market close).
+  expiration DateTime
+  /// Shares per contract — always 100. All P&L = price x multiplier x contracts.
+  multiplier Int @default(100)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  positions OptionPosition[]
+
+  @@index([underlying, expiration])
+}
+
+/// A LONG option position (M17). `contracts` is the live source of truth; the
+/// maximum loss is bounded at `premiumPaidCents` (the debit paid — no
+/// assignment/margin for long single-leg). Mirrors the equity Position
+/// lifecycle (OPEN -> CLOSING -> CLOSED).
+model OptionPosition {
+  id String @id @default(cuid())
+  optionContractId String
+  optionContract OptionContract @relation(fields: [optionContractId], references: [id])
+  /// Live contract count (source of truth, like equity Position.quantity).
+  contracts Int
+  /// Average premium paid PER SHARE, in cents.
+  avgPremiumPaidCents Int
+  /// Total cost basis = contracts x avgPremiumPaidCents x multiplier. Also the
+  /// maximum loss (a long option can go to zero).
+  premiumPaidCents Int
+  /// "OPEN" | "CLOSING" | "CLOSED".
+  status String @default("OPEN")
+  openedAt DateTime @default(now())
+  closedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, openedAt])
+}
+
 // --- Milestone 5: source intelligence & signals --------------------------------
 // Mirrors the types in @signalguard/domain. Source content is treated as hostile
 // data; instructions inside it are never executed (AGENTS.md §2). No connector

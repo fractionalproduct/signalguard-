@@ -25,6 +25,8 @@ export type {
   Notification,
   NotificationSeverity,
   Order,
+  OptionContract,
+  OptionPosition,
   Owner,
   Position,
   PositionStatus,
@@ -69,6 +71,10 @@ export {
   type AutopilotConfig,
   type AutopilotConfigPatch,
 } from "./autopilot-config.js";
+export {
+  listOpenOptionPositions,
+  type OptionPositionWithContract,
+} from "./option-positions.js";
 export { listRecentAuditEvents } from "./audit-events.js";
 export {
   openPosition,
