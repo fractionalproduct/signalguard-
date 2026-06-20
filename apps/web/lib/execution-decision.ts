@@ -61,6 +61,8 @@ export interface ExecutionInputs {
   marketDataFresh: boolean;
   accountDataFresh: boolean;
   marketSession: MarketSession;
+  /** Owner opt-in: allow PRE_MARKET / AFTER_HOURS entries. Default false. */
+  extendedHoursAllowed: boolean;
   /** Current mid price for movement-since-signal; null when no quote. */
   currentMidCents: number | null;
   bidAskSpreadBps: number;
@@ -184,6 +186,7 @@ export function decideExecution(input: ExecutionInputs): ExecutionDecision {
     marketDataFresh: input.marketDataFresh,
     accountDataFresh: input.accountDataFresh,
     marketSession: input.marketSession,
+    extendedHoursAllowed: input.extendedHoursAllowed,
     symbol: input.symbol,
     // Defaults safe for the curated paper watchlist; tighten as data lands.
     symbolSupported: true,

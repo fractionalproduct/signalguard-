@@ -84,6 +84,9 @@ export interface SubmitOrderInput {
   /** Required when `type === "limit"`; ignored otherwise. Integer cents. */
   limitPriceCents?: Cents;
   timeInForce: "DAY" | "GTC";
+  /** Route to PRE_MARKET / AFTER_HOURS. Alpaca requires extended-hours orders
+   * to be limit + DAY; default false (regular session only). */
+  extendedHours?: boolean;
 }
 
 /**

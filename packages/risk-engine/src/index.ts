@@ -12,6 +12,23 @@ export type {
   RiskEvaluation,
 } from "./types.js";
 
+/**
+ * Whether new entries are allowed in the given session. REGULAR is always
+ * tradeable; PRE_MARKET / AFTER_HOURS only when the owner has opted into
+ * extended hours. CLOSED / HOLIDAY / EARLY_CLOSE / UNKNOWN are never tradeable
+ * (EARLY_CLOSE is conservative — a half-day classification, not the open part).
+ */
+export function isTradeableSession(
+  session: RiskContext["marketSession"],
+  extendedHoursAllowed: boolean,
+): boolean {
+  if (session === "REGULAR") return true;
+  if (extendedHoursAllowed && (session === "PRE_MARKET" || session === "AFTER_HOURS")) {
+    return true;
+  }
+  return false;
+}
+
 /** Each rule returns a block when triggered, or null when satisfied. */
 type Rule = (ctx: RiskContext) => RiskBlock | null;
 
@@ -21,9 +38,14 @@ const RULES: Rule[] = [
   (c) => (!c.marketDataFresh ? { code: "STALE_MARKET_DATA", message: "Market data is stale." } : null),
   (c) => (!c.accountDataFresh ? { code: "STALE_ACCOUNT_DATA", message: "Account data is stale." } : null),
   (c) =>
-    c.marketSession !== "REGULAR"
-      ? { code: "UNSUPPORTED_SESSION", message: `New entries are only allowed in the regular session (got ${c.marketSession}).` }
-      : null,
+    isTradeableSession(c.marketSession, c.extendedHoursAllowed)
+      ? null
+      : {
+          code: "UNSUPPORTED_SESSION",
+          message: c.extendedHoursAllowed
+            ? `New entries are only allowed in the regular/extended sessions (got ${c.marketSession}).`
+            : `New entries are only allowed in the regular session (got ${c.marketSession}).`,
+        },
   (c) => (!c.symbolSupported ? { code: "UNSUPPORTED_SYMBOL", message: `Symbol ${c.symbol} is unsupported or ambiguous.` } : null),
   (c) => (c.symbolHalted ? { code: "TRADING_HALT", message: `${c.symbol} is halted.` } : null),
   (c) => (c.isOtc ? { code: "OTC_INSTRUMENT", message: "OTC instruments are not permitted." } : null),

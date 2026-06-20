@@ -24,6 +24,7 @@ function base(overrides: Partial<ExecutionInputs> = {}): ExecutionInputs {
     marketDataFresh: true,
     accountDataFresh: true,
     marketSession: "REGULAR",
+    extendedHoursAllowed: false,
     currentMidCents: 10_000,
     bidAskSpreadBps: 10,
     manipulationRisk: "low",
@@ -176,4 +177,14 @@ test("daily capital cap: exactly fits -> SUBMIT (boundary, not a breach)", () =>
     base({ dailyControls: { ...dailyOff, capCents: 50_000, capitalDeployedTodayCents: 0 } }),
   );
   assert.equal(d.action, "submit");
+});
+
+test("extended hours: after-hours HOLDS by default, SUBMITS when opted in", () => {
+  const offHours = base({ marketSession: "AFTER_HOURS" });
+  const held = decideExecution(offHours);
+  assert.equal(held.action, "hold"); // UNSUPPORTED_SESSION is transient -> HOLD
+  if (held.action === "hold") assert.ok(held.reasons.includes("UNSUPPORTED_SESSION"));
+
+  const opted = decideExecution({ ...offHours, extendedHoursAllowed: true });
+  assert.equal(opted.action, "submit");
 });

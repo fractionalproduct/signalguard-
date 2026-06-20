@@ -25,6 +25,7 @@ export async function saveAutopilotConfigAction(
   const enabled = formData.get("enabled") === "on";
   const armed = formData.get("armed") === "on";
   const profitLockEnabled = formData.get("profitLockEnabled") === "on";
+  const extendedHoursEnabled = formData.get("extendedHoursEnabled") === "on";
 
   const dollarsToCents = (raw: FormDataEntryValue | null): number | null => {
     const s = String(raw ?? "").trim();
@@ -80,6 +81,7 @@ export async function saveAutopilotConfigAction(
     dailyCapitalCapCents,
     dailyProfitTargetCents,
     profitLockEnabled,
+    extendedHoursEnabled,
     maxNewPositionsPerDay,
     minProbability,
     minConfidence,
