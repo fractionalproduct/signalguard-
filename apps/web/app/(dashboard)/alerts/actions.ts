@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { acknowledgeAlert, getDb } from "@signalguard/database";
+import { getCurrentOwner } from "../../../lib/session";
 
 /**
  * Server action invoked by the AlertsList "Acknowledge" form. Reads the
@@ -15,6 +16,7 @@ import { acknowledgeAlert, getDb } from "@signalguard/database";
 export async function acknowledgeAlertAction(
   formData: FormData,
 ): Promise<void> {
+  if (!(await getCurrentOwner())) return;
   const alertId = String(formData.get("alertId") ?? "").trim();
   if (!alertId) return;
   await acknowledgeAlert(getDb(), alertId);

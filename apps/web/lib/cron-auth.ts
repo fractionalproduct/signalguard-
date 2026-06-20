@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 /**
  * Cron request auth check.
  *
@@ -21,5 +23,9 @@ export function isAuthorizedCronRequest(input: CronAuthCheckInput): boolean {
   const { authHeader, expectedSecret } = input;
   if (!expectedSecret) return false;
   if (!authHeader) return false;
-  return authHeader === `Bearer ${expectedSecret}`;
+  // Constant-time compare so a mismatch can't be timed byte-by-byte to recover
+  // the secret. Length check first (timingSafeEqual throws on length mismatch).
+  const a = Buffer.from(authHeader);
+  const b = Buffer.from(`Bearer ${expectedSecret}`);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
