@@ -60,6 +60,8 @@
     "lib/benchmark-view.ts",
     "lib/benchmark-view.test.ts",
     "lib/options-view.ts",
-    "lib/options-view.test.ts"
+    "lib/options-view.test.ts",
+    "lib/ta-ingest.ts",
+    "lib/ta-ingest.test.ts"
   ]
 }
