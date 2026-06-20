@@ -1,5 +1,6 @@
 import { PortfolioDashboard } from "../../components/PortfolioDashboard";
 import { InstrumentBadge } from "../../components/InstrumentBadge";
+import { OptionBuyForm } from "../../components/OptionBuyForm";
 import { loadPortfolioState } from "../../../lib/portfolio";
 import { loadOptionsState, type OptionsState } from "../../../lib/options";
 
@@ -70,6 +71,7 @@ function OptionsSection({ state }: { state: OptionsState }) {
           ))}
         </ul>
       )}
+      <OptionBuyForm />
     </section>
   );
 }

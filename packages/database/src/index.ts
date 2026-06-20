@@ -74,7 +74,9 @@ export {
 } from "./autopilot-config.js";
 export {
   listOpenOptionPositions,
+  openOptionPosition,
   type OptionPositionWithContract,
+  type OpenOptionPositionInput,
 } from "./option-positions.js";
 export { listRecentAuditEvents } from "./audit-events.js";
 export {
