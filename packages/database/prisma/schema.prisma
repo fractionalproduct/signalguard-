@@ -139,7 +139,9 @@ model AutopilotConfig {
   /// Minimum expected value in R multiples (reward/risk-weighted by probability).
   minExpectedValueR Float @default(0.1)
   /// Reject proposals older than this many seconds (signal-freshness TTL).
-  maxSignalAgeSeconds Int @default(300)
+  /// 1h default: proposals are generated hourly, so a short TTL would make them
+  /// eligible only briefly. Configurable.
+  maxSignalAgeSeconds Int @default(3600)
 
   updatedBy String?
   updatedAt DateTime @updatedAt

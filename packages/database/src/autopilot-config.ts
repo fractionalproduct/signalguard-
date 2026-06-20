@@ -36,7 +36,9 @@ export const AUTOPILOT_DEFAULTS: AutopilotConfig = {
   minProbability: 0.6,
   minConfidence: 0.7,
   minExpectedValueR: 0.1,
-  maxSignalAgeSeconds: 300,
+  // 1h: proposals are generated hourly off daily bars, so a 5-min TTL would make
+  // a proposal eligible for only a sliver of its life. Configurable.
+  maxSignalAgeSeconds: 3600,
   updatedAt: null,
 };
 

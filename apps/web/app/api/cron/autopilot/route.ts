@@ -112,6 +112,11 @@ export async function GET(req: Request): Promise<Response> {
   for (const p of pending) {
     if (authorized >= MAX_PER_TICK) break;
 
+    // Per-proposal isolation: an unattended engine must never let one bad
+    // proposal (an unexpected throw mid approve/authorize) abort the whole tick
+    // and strand others — or leave THIS one APPROVED with no order. Any throw is
+    // logged and the loop moves on; the next tick re-evaluates cleanly.
+    try {
     const result = evaluateAutoApproval(
       {
         status: p.status,
@@ -207,6 +212,14 @@ export async function GET(req: Request): Promise<Response> {
       },
     });
     if (moved.ok) authorized++;
+    } catch (err) {
+      console.error("[cron/autopilot] proposal failed", p.id, err);
+      await recordAuditEvent({
+        type: "autopilot.error",
+        source: "trading-worker",
+        metadata: { proposalId: p.id, symbol: p.symbol, error: String(err) },
+      }).catch(() => {});
+    }
   }
 
   // One summary notification when the engine actually acted (armed + approvals).
