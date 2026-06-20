@@ -9,6 +9,8 @@ import {
   buildNotificationsView,
   type NotificationsView,
 } from "./notifications-view";
+import { isMockMode } from "./mock/mock-mode";
+import { MOCK_NOTIFICATIONS } from "./mock/notifications-fixture";
 
 export type NotificationsState =
   | { status: "empty" }
@@ -16,6 +18,8 @@ export type NotificationsState =
   | { status: "ok"; view: NotificationsView };
 
 export async function loadNotificationsState(): Promise<NotificationsState> {
+  if (isMockMode())
+    return { status: "ok", view: buildNotificationsView(MOCK_NOTIFICATIONS) };
   try {
     const notifications = await listNotifications(getDb(), { limit: 100 });
     if (notifications.length === 0) return { status: "empty" };

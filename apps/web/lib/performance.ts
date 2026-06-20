@@ -9,6 +9,8 @@
  */
 import "server-only";
 import { getDb, listClosedPositionsWithExitFills } from "@signalguard/database";
+import { isMockMode } from "./mock/mock-mode";
+import { MOCK_CLOSED_POSITIONS } from "./mock/performance-fixture";
 import { buildPerformanceView, type PerformanceView } from "./performance-view";
 
 export type PerformanceState =
@@ -17,6 +19,8 @@ export type PerformanceState =
   | { status: "ok"; view: PerformanceView };
 
 export async function loadPerformanceState(): Promise<PerformanceState> {
+  if (isMockMode())
+    return { status: "ok", view: buildPerformanceView(MOCK_CLOSED_POSITIONS) };
   try {
     const db = getDb();
     const closed = await listClosedPositionsWithExitFills(db, 200);

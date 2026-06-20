@@ -13,6 +13,8 @@ import {
   listLatestWatchlistSnapshots,
 } from "@signalguard/database";
 import { buildResearchView, type ResearchView } from "./research-view";
+import { isMockMode } from "./mock/mock-mode";
+import { MOCK_SNAPSHOTS } from "./mock/research-fixture";
 
 export type ResearchState =
   | { status: "empty" }
@@ -25,6 +27,8 @@ export type ResearchState =
  * to the "error" branch so the rest of the app keeps rendering.
  */
 export async function loadResearchState(): Promise<ResearchState> {
+  if (isMockMode())
+    return { status: "ok", view: buildResearchView(MOCK_SNAPSHOTS) };
   try {
     const snapshots = await listLatestWatchlistSnapshots(getDb(), {
       limit: 50,

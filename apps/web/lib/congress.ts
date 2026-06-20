@@ -14,6 +14,8 @@ import {
   type DisclosureRecord,
   type DisclosuresView,
 } from "./congress-view";
+import { isMockMode } from "./mock/mock-mode";
+import { MOCK_DISCLOSURES } from "./mock/congress-fixture";
 
 export type CongressState =
   | { status: "not-configured" }
@@ -30,6 +32,9 @@ const DISCLOSURE_LIMIT = 100;
 export async function loadCongressState(
   query: () => Promise<DisclosureRecord[]> = defaultQuery,
 ): Promise<CongressState> {
+  if (isMockMode()) {
+    return { status: "ok", view: buildDisclosuresView(MOCK_DISCLOSURES) };
+  }
   if (!process.env.DATABASE_URL) {
     return { status: "not-configured" };
   }

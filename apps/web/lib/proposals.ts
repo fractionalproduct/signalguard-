@@ -11,6 +11,11 @@ import {
   listProposals,
 } from "@signalguard/database";
 import { buildProposalsView, type ProposalsView } from "./proposals-view";
+import { isMockMode } from "./mock/mock-mode";
+import {
+  MOCK_PROPOSALS,
+  MOCK_PROPOSAL_ORDERS,
+} from "./mock/proposals-fixture";
 
 export type ProposalsState =
   | { status: "empty" }
@@ -18,6 +23,11 @@ export type ProposalsState =
   | { status: "ok"; view: ProposalsView };
 
 export async function loadProposalsState(): Promise<ProposalsState> {
+  if (isMockMode())
+    return {
+      status: "ok",
+      view: buildProposalsView(MOCK_PROPOSALS, new Date(), MOCK_PROPOSAL_ORDERS),
+    };
   try {
     const db = getDb();
     const proposals = await listProposals(db, { limit: 100 });
