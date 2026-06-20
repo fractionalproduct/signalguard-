@@ -52,6 +52,11 @@ New Prisma models (money in integer cents, per the repo convention):
 
 ## 5. Options risk sub-model (deterministic gates; defaults configurable)
 
+> **Derived from `docs/knowledge/options-knowledge.md`** — that knowledge base is
+> the source of truth (the 7 common mistakes → these gates; the 6-step framework
+> → the analysis order). Update them together. The AI analysis layer loads it as
+> context so its written rationale reflects these principles.
+
 Max loss = premium. **Size by premium-at-risk:** `contracts = floor(riskBudgetCents / (limitPremiumCents × 100))`; reject if `< 1`. Every gate is deterministic, logged, and must pass:
 
 | Gate | Proposed default | Rationale |
