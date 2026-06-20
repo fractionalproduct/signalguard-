@@ -75,6 +75,10 @@ export interface RiskContext {
   marketDataFresh: boolean;
   accountDataFresh: boolean;
   marketSession: MarketSession;
+  /** When true, PRE_MARKET and AFTER_HOURS sessions are also tradeable (owner
+   * opt-in). Default false = regular-session-only. CLOSED/HOLIDAY are never
+   * tradeable regardless. */
+  extendedHoursAllowed: boolean;
 
   // Instrument
   symbol: string;

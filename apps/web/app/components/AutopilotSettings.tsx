@@ -105,6 +105,20 @@ export async function AutopilotSettings() {
           <span>Lock in profit once the daily target is hit</span>
         </label>
 
+        <label className="autopilot-toggle">
+          <input
+            type="checkbox"
+            name="extendedHoursEnabled"
+            defaultChecked={config.extendedHoursEnabled}
+          />
+          <span>
+            Allow extended-hours trading (pre-market &amp; after-hours) —{" "}
+            <strong>manual orders only</strong>; the autonomous engine still
+            trades the regular session only. Wider spreads &amp; thinner
+            liquidity off-hours.
+          </span>
+        </label>
+
         <div className="autopilot-field">
           <label htmlFor="ap-maxnew">Max new positions per day</label>
           <input

@@ -134,6 +134,7 @@ export async function GET(req: Request): Promise<Response> {
   // position; partial exit fills collapse) is bucketed into ET day/week/month.
   let lossWindows;
   let dailyControls;
+  let extendedHoursEnabled = false;
   try {
     const closed = await listClosedPositionsWithExitFills(db, 200);
     const trades = closed.map((c) => ({
@@ -153,6 +154,7 @@ export async function GET(req: Request): Promise<Response> {
     // = gross entry notional of ENTRY orders committed today (sent or filled),
     // and realized PROFIT today = the positive part of net realized P&L today.
     const config = await getAutopilotConfig(db);
+    extendedHoursEnabled = config.extendedHoursEnabled;
     const recentOrders = await listOrders(db, { limit: 200 });
     const COMMITTED = new Set(["SUBMITTED", "ACCEPTED", "PARTIALLY_FILLED", "FILLED"]);
     const capitalDeployedTodayCents = sumCentsOnEtDay(
@@ -175,6 +177,12 @@ export async function GET(req: Request): Promise<Response> {
     );
   }
 
+  const session = classifySession(new Date(), {});
+  // Extended-hours routing: only when the owner opted in AND we're actually in
+  // a pre/after-hours session (the autonomous engine stays regular-only).
+  const routeExtendedHours =
+    extendedHoursEnabled && (session === "PRE_MARKET" || session === "AFTER_HOURS");
+
   const decision = decideExecution({
     authorizedQuantity: order.quantity,
     entryPriceCents: order.entryPriceCents,
@@ -193,7 +201,8 @@ export async function GET(req: Request): Promise<Response> {
     brokerConnected: true, // getAccount succeeded
     marketDataFresh: quote !== null,
     accountDataFresh: true,
-    marketSession: classifySession(new Date(), {}),
+    marketSession: session,
+    extendedHoursAllowed: extendedHoursEnabled,
     currentMidCents,
     bidAskSpreadBps: spreadBps,
     manipulationRisk,
@@ -251,6 +260,7 @@ export async function GET(req: Request): Promise<Response> {
       type: "limit",
       limitPriceCents: decision.limitPriceCents,
       timeInForce: "DAY",
+      extendedHours: routeExtendedHours,
     });
   } catch (err) {
     // Submission failed (not a duplicate — the client swallows those). Leave the

@@ -18,6 +18,7 @@ export interface AutopilotConfig {
   dailyProfitTargetCents: number | null;
   profitLockEnabled: boolean;
   maxNewPositionsPerDay: number | null;
+  extendedHoursEnabled: boolean;
   minProbability: number;
   minConfidence: number;
   minExpectedValueR: number;
@@ -33,6 +34,7 @@ export const AUTOPILOT_DEFAULTS: AutopilotConfig = {
   dailyProfitTargetCents: null,
   profitLockEnabled: true,
   maxNewPositionsPerDay: null,
+  extendedHoursEnabled: false,
   minProbability: 0.6,
   minConfidence: 0.7,
   minExpectedValueR: 0.1,
@@ -61,6 +63,7 @@ export async function getAutopilotConfig(
     dailyProfitTargetCents: row.dailyProfitTargetCents,
     profitLockEnabled: row.profitLockEnabled,
     maxNewPositionsPerDay: row.maxNewPositionsPerDay,
+    extendedHoursEnabled: row.extendedHoursEnabled,
     minProbability: row.minProbability,
     minConfidence: row.minConfidence,
     minExpectedValueR: row.minExpectedValueR,
@@ -101,6 +104,7 @@ export async function setAutopilotConfig(
       merged.maxNewPositionsPerDay === null
         ? null
         : Math.max(0, Math.round(merged.maxNewPositionsPerDay)),
+    extendedHoursEnabled: merged.extendedHoursEnabled,
     minProbability: clampUnit(merged.minProbability),
     minConfidence: clampUnit(merged.minConfidence),
     minExpectedValueR: Math.max(0, merged.minExpectedValueR),
@@ -120,6 +124,7 @@ export async function setAutopilotConfig(
     dailyProfitTargetCents: row.dailyProfitTargetCents,
     profitLockEnabled: row.profitLockEnabled,
     maxNewPositionsPerDay: row.maxNewPositionsPerDay,
+    extendedHoursEnabled: row.extendedHoursEnabled,
     minProbability: row.minProbability,
     minConfidence: row.minConfidence,
     minExpectedValueR: row.minExpectedValueR,

@@ -10,6 +10,7 @@ function clean(): RiskContext {
     marketDataFresh: true,
     accountDataFresh: true,
     marketSession: "REGULAR",
+    extendedHoursAllowed: false,
     symbol: "AAPL",
     symbolSupported: true,
     symbolHalted: false,
@@ -65,6 +66,17 @@ test("each deterministic rule blocks when its condition holds", () => {
   expectBlock({ ...clean(), accountDataFresh: false }, "STALE_ACCOUNT_DATA");
   expectBlock({ ...clean(), marketSession: "PRE_MARKET" }, "UNSUPPORTED_SESSION");
   expectBlock({ ...clean(), marketSession: "UNKNOWN" }, "UNSUPPORTED_SESSION");
+});
+
+test("extended hours: opt-in allows pre-market + after-hours, still blocks closed sessions", () => {
+  // With the opt-in, the regular-only session gate relaxes for pre/after hours.
+  assert.equal(evaluateTrade({ ...clean(), marketSession: "PRE_MARKET", extendedHoursAllowed: true }).allowed, true);
+  assert.equal(evaluateTrade({ ...clean(), marketSession: "AFTER_HOURS", extendedHoursAllowed: true }).allowed, true);
+  // But never when the market is fully closed, even with the opt-in.
+  expectBlock({ ...clean(), marketSession: "CLOSED", extendedHoursAllowed: true }, "UNSUPPORTED_SESSION");
+  expectBlock({ ...clean(), marketSession: "HOLIDAY", extendedHoursAllowed: true }, "UNSUPPORTED_SESSION");
+  // And opt-out (default) still blocks pre-market.
+  expectBlock({ ...clean(), marketSession: "AFTER_HOURS", extendedHoursAllowed: false }, "UNSUPPORTED_SESSION");
   expectBlock({ ...clean(), symbolSupported: false }, "UNSUPPORTED_SYMBOL");
   expectBlock({ ...clean(), symbolHalted: true }, "TRADING_HALT");
   expectBlock({ ...clean(), isOtc: true }, "OTC_INSTRUMENT");

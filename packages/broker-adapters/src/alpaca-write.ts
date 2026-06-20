@@ -158,6 +158,11 @@ export class AlpacaPaperExecutionClient implements BrokerWriteClient {
     if (input.type === "limit") {
       payload.limit_price = fromCents(input.limitPriceCents as number);
     }
+    // Alpaca only accepts extended_hours on limit + DAY orders; the execution
+    // path always uses a limit DAY entry, so this is safe to set when routed.
+    if (input.extendedHours) {
+      payload.extended_hours = true;
+    }
 
     try {
       const { body } = await this.request<Record<string, unknown>>(

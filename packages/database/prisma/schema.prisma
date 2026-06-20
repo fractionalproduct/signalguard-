@@ -133,6 +133,10 @@ model AutopilotConfig {
   /// Cap on new positions opened per ET day. Null = use the risk profile default.
   maxNewPositionsPerDay Int?
 
+  /// Owner opt-in to trade PRE_MARKET / AFTER_HOURS (manual path only — the
+  /// autonomous engine stays regular-session-only). Default false = regular only.
+  extendedHoursEnabled Boolean @default(false)
+
   /// Auto-approval gate thresholds (a proposal must clear ALL of these).
   minProbability    Float @default(0.6)
   minConfidence     Float @default(0.7)
