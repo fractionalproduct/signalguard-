@@ -69,6 +69,7 @@ export {
   type AutopilotConfig,
   type AutopilotConfigPatch,
 } from "./autopilot-config.js";
+export { listRecentAuditEvents } from "./audit-events.js";
 export {
   openPosition,
   openPositionFromFilledEntry,

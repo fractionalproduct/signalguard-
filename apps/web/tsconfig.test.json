@@ -50,6 +50,8 @@
     "lib/notifications-view.test.ts",
     "lib/briefing-email.test.ts",
     "lib/performance-view.ts",
-    "lib/performance-view.test.ts"
+    "lib/performance-view.test.ts",
+    "lib/today-view.ts",
+    "lib/today-view.test.ts"
   ]
 }
