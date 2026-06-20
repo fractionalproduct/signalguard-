@@ -62,6 +62,8 @@
     "lib/options-view.ts",
     "lib/options-view.test.ts",
     "lib/ta-ingest.ts",
-    "lib/ta-ingest.test.ts"
+    "lib/ta-ingest.test.ts",
+    "lib/option-risk.ts",
+    "lib/option-risk.test.ts"
   ]
 }
