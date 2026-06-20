@@ -21,6 +21,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/ta-ingest",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/reconcile-orders",
       "schedule": "* * * * *"
     },

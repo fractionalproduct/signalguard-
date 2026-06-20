@@ -30,6 +30,7 @@ export type {
   Owner,
   Position,
   PositionStatus,
+  TaCandidate,
   TechnicalAnalysisSnapshot,
   TradeProposal,
   TradeProposalStatus,
@@ -136,3 +137,11 @@ export {
   type RecordFillResult,
   type SetBrokerOrderIdResult,
 } from "./orders.js";
+export {
+  createTaCandidate,
+  listNewTaCandidates,
+  setTaCandidateStatus,
+  type CreateTaCandidateInput,
+  type CreateTaCandidateResult,
+  type SetTaCandidateStatusResult,
+} from "./ta-candidates.js";
