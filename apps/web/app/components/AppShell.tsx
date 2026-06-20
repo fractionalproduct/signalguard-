@@ -33,13 +33,21 @@ export function AppShell({
   children,
   ownerEmail,
   emergencyStopActive,
+  mockMode = false,
 }: {
   children: ReactNode;
   ownerEmail: string;
   emergencyStopActive: boolean;
+  mockMode?: boolean;
 }) {
   return (
     <div className="app-shell">
+      {mockMode ? (
+        <div className="mock-banner" role="status">
+          🧪 MOCK DATA — every page below is sample data for preview only. No live
+          account, database, or broker is being read.
+        </div>
+      ) : null}
       {emergencyStopActive ? (
         <div className="emergency-banner" role="alert">
           ⛔ EMERGENCY STOP ACTIVE — new orders are blocked. Protective exits

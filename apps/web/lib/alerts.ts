@@ -6,6 +6,8 @@
 import "server-only";
 import { getDb, listRecentAlerts } from "@signalguard/database";
 import { buildAlertsView, type AlertsView } from "./alerts-view";
+import { isMockMode } from "./mock/mock-mode";
+import { MOCK_ALERTS } from "./mock/alerts-fixture";
 
 export type AlertsState =
   | { status: "empty" }
@@ -13,6 +15,7 @@ export type AlertsState =
   | { status: "ok"; view: AlertsView };
 
 export async function loadAlertsState(): Promise<AlertsState> {
+  if (isMockMode()) return { status: "ok", view: buildAlertsView(MOCK_ALERTS) };
   try {
     const alerts = await listRecentAlerts(getDb(), { limit: 100 });
     if (alerts.length === 0) return { status: "empty" };

@@ -10,6 +10,8 @@ import "server-only";
 import { getDb } from "@signalguard/database";
 
 import { buildSignalsView, type SignalRecord, type SignalsView } from "./signals-view";
+import { isMockMode } from "./mock/mock-mode";
+import { MOCK_SIGNALS } from "./mock/signals-fixture";
 
 export type SignalsState =
   | { status: "not-configured" }
@@ -26,6 +28,7 @@ const SIGNAL_LIMIT = 100;
 export async function loadSignalsState(
   query: () => Promise<SignalRecord[]> = defaultQuery,
 ): Promise<SignalsState> {
+  if (isMockMode()) return { status: "ok", view: buildSignalsView(MOCK_SIGNALS) };
   if (!process.env.DATABASE_URL) {
     return { status: "not-configured" };
   }

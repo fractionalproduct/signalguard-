@@ -12,6 +12,12 @@ import {
   type BrokerReadClient,
 } from "@signalguard/broker-adapters";
 import { buildPortfolioView, type PortfolioView } from "./portfolio-view";
+import { isMockMode } from "./mock/mock-mode";
+import {
+  MOCK_ACCOUNT,
+  MOCK_POSITIONS,
+  MOCK_ORDERS,
+} from "./mock/portfolio-fixture";
 
 export type PortfolioState =
   | { status: "not-configured" }
@@ -25,6 +31,14 @@ export type PortfolioState =
 export async function loadPortfolioState(
   brokerFactory: () => BrokerReadClient | null = createPaperBrokerFromEnv,
 ): Promise<PortfolioState> {
+  if (isMockMode()) {
+    return {
+      status: "ok",
+      view: buildPortfolioView(MOCK_ACCOUNT, MOCK_POSITIONS, MOCK_ORDERS),
+      livePaper: true,
+    };
+  }
+
   let broker: BrokerReadClient | null;
   try {
     broker = brokerFactory();

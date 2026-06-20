@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getDb, isEmergencyStopActive } from "@signalguard/database";
 import { getCurrentOwner } from "../../lib/session";
 import { AppShell } from "../components/AppShell";
+import { isMockMode } from "../../lib/mock/mock-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -13,20 +14,33 @@ export const dynamic = "force-dynamic";
  * current).
  */
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  const owner = await getCurrentOwner();
-  if (!owner) redirect("/login");
+  const mockMode = isMockMode();
 
-  // Fail-safe: if the flag can't be read, show the stop as ACTIVE (the safe
-  // default for a kill switch — better a false alarm than a hidden stop).
-  let emergencyStopActive = true;
-  try {
-    emergencyStopActive = await isEmergencyStopActive(getDb());
-  } catch {
+  // Mock/demo mode: no auth, no DB. Use a placeholder owner and never read the
+  // Emergency-Stop flag (it would hit the real DB, and the kill switch is
+  // meaningless over sample data).
+  let ownerEmail = "demo@signalguard.local";
+  let emergencyStopActive = false;
+  if (!mockMode) {
+    const owner = await getCurrentOwner();
+    if (!owner) redirect("/login");
+    ownerEmail = owner.email;
+    // Fail-safe: if the flag can't be read, show the stop as ACTIVE (the safe
+    // default for a kill switch — better a false alarm than a hidden stop).
     emergencyStopActive = true;
+    try {
+      emergencyStopActive = await isEmergencyStopActive(getDb());
+    } catch {
+      emergencyStopActive = true;
+    }
   }
 
   return (
-    <AppShell ownerEmail={owner.email} emergencyStopActive={emergencyStopActive}>
+    <AppShell
+      ownerEmail={ownerEmail}
+      emergencyStopActive={emergencyStopActive}
+      mockMode={mockMode}
+    >
       {children}
     </AppShell>
   );
