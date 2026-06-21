@@ -1,10 +1,11 @@
 # TradingAgents Sidecar (SignalGuard integration — slice S2)
 
-**This is SCAFFOLD.** The Python here does not run inside the SignalGuard repo.
-The owner provides the host, the TradingAgents install, and ONE Western LLM key.
-The `decision -> action` extraction in `emit_candidates.py` (`map_decision`) is a
-documented ASSUMPTION that must be validated against real `TradingAgentsGraph.propagate()`
-output before this influences even paper trades.
+**This is SCAFFOLD** in that the Python doesn't run inside the SignalGuard repo —
+the owner provides the host, the TradingAgents install, and ONE Western LLM key.
+The integration points were **validated against TradingAgents @ v0.2.5** (the
+`TradingAgentsGraph` config keys, the `propagate()` signature, and the
+processed-signal rating format — see "Validated integration" below), so the
+`emit_candidates.py` mapping is no longer a blind assumption.
 
 ## What it does
 
@@ -79,15 +80,26 @@ Banned: every Chinese provider (DeepSeek / Qwen / GLM / MiniMax / Moonshot). The
 script refuses to start on a non-allowlisted `TA_LLM_PROVIDER`; the firewall is
 the real enforcement.
 
-## Known assumptions to validate against real TradingAgents output
+## Validated integration (TradingAgents @ v0.2.5)
 
-- **`map_decision`**: current TradingAgents returns `decision` as loosely-
-  structured free text ("FINAL TRANSACTION PROPOSAL: **BUY**" + rationale), not a
-  typed object. The action is extracted by string match and `confidenceHint` is
-  left `null`. Confirm the real return shape and rewrite to read a structured
-  field if one exists.
-- **`build_graph` config keys**: provider/model selection key names
-  (`llm_provider`, `deep_think_llm`, `backend_url`, …) differ across versions.
-  Confirm against the installed `TradingAgentsGraph` signature / `default_config`.
-- **`propagate(symbol, date)` arg format**: confirm whether the date is a string
-  `"YYYY-MM-DD"` or a `date` object in the installed version.
+Confirmed against the real source so the mapping isn't guesswork:
+- **Construction:** `TradingAgentsGraph(config=...)` reads `config["llm_provider"]`,
+  `["deep_think_llm"]`, `["quick_think_llm"]`, `["backend_url"]`, `["temperature"]`,
+  `["max_debate_rounds"]`, `["max_recur_limit"]`. (`default_config`: openai /
+  gpt-5.5 / gpt-5.4-mini.) `build_graph` sets these; models + backend_url are
+  env-overridable for non-OpenAI providers.
+- **`propagate(company_name, trade_date, asset_type="stock")`** — `trade_date` is
+  a **`"YYYY-MM-DD"` string** (we pass `date.today().isoformat()`).
+- **Return:** `(final_state, processed_signal)`. `processed_signal` is one of FIVE
+  title-case ratings — **`Buy / Overweight / Hold / Underweight / Sell`**
+  (`graph/signal_processing.py: process_signal`). `map_rating` maps
+  Buy/Overweight→`BUY`, Hold→`HOLD`, Sell/Underweight→`SELL`; an unrecognized
+  value defaults to `HOLD` (which ta-ingest drops — never a false BUY).
+- **Thesis:** `extract_thesis` reads the rationale from
+  `final_state["final_trade_decision"]` (fallbacks: `trader_investment_plan`,
+  `investment_plan`), truncated to the server cap.
+
+**Still confirm on first run** (cheap, in the sidecar's own logs): that
+`final_state` actually carries `final_trade_decision` as a string for your config,
+and a one-symbol dry run posts a sane `rating -> action`. The script logs
+`{rating!r} -> {action} -> posted` per symbol for exactly this.
