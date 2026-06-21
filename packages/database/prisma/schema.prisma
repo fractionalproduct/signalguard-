@@ -230,6 +230,38 @@ model OptionConfig {
   updatedAt DateTime @updatedAt
 }
 
+/// Autonomous OPTIONS engine config (M17) — DELIBERATELY SEPARATE from
+/// AutopilotConfig and STRICTER than the manual OptionConfig (docs/options-scope §9).
+/// Default OFF + SHADOW. A superset of the lib OptionRiskConfig (the stricter
+/// gate) plus the autonomous caps, so it passes straight to evaluateOptionEntry.
+model OptionAutopilotConfig {
+  id String @id @default("global")
+
+  /// Master switch — the engine does nothing when false.
+  enabled Boolean @default(false)
+  /// Decide-and-log only (never places an order). The safe default; arming the
+  /// autonomous options buyer is a deliberate, separate, later step.
+  shadowMode Boolean @default(true)
+
+  /// Autonomous caps (in addition to the per-trade gate).
+  maxConcurrentOptionPositions Int @default(3)
+  maxAggregatePremiumAtRiskCents Int @default(100000)
+
+  /// Stricter entry gate than manual OptionConfig (tighter DTE/spread/liquidity,
+  /// smaller per-trade premium). Same shape as OptionRiskConfig.
+  minDte                  Int    @default(21)
+  maxDte                  Int    @default(45)
+  maxSpreadBps            Int    @default(500)
+  minOpenInterest         Int    @default(1000)
+  minPremiumCents         Int    @default(10)
+  maxPremiumPerTradeCents Int    @default(30000)
+  minMarkCents            Int    @default(10)
+  maxIvPercent            Float?
+
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
 /// A trade-symbol candidate from the TradingAgents sidecar
 /// (docs/tradingagents-integration-review.md). The sidecar WRITES these; the
 /// ta-ingest cron consumes NEW ones, runs OUR M9 scan on the symbol, and creates
