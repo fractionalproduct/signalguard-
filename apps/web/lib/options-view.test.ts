@@ -67,6 +67,7 @@ test("buildOptionPositionView: a row's costBasis is the premium paid (max loss)"
   assert.equal(rows.length, 1);
   const r = rows[0];
   assert.equal(r.costBasis, "$2,500.00"); // premiumPaidCents formatted directly
+  assert.equal(r.costBasisCents, 250000); // numeric source for summing rows
   assert.equal(r.avgPremium, "$12.50"); // per-share average
   assert.equal(r.contracts, 2);
   assert.equal(r.label, "META 2026-07-18 $720 CALL");

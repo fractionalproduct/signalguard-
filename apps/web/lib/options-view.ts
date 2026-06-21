@@ -50,6 +50,8 @@ export interface OptionPositionRow {
   avgPremium: string;
   /** Total premium paid = cost basis = MAX LOSS, formatted USD. */
   costBasis: string;
+  /** Same value as `costBasis` in integer cents, for summing across rows. */
+  costBasisCents: number;
   /** Shares per contract (always 100) — explains the cost-basis multiplier. */
   multiplier: number;
   /** Expiration → ISO date (YYYY-MM-DD). */
@@ -107,6 +109,7 @@ function buildRow({ position, contract }: OptionPositionWithContractInput): Opti
     // Total premium paid IS the cost basis and the maximum loss — format the
     // stored total directly, never recompute (schema guarantees the invariant).
     costBasis: formatUsd(position.premiumPaidCents),
+    costBasisCents: position.premiumPaidCents,
     multiplier: contract.multiplier,
     expiration: isoDate(contract.expiration),
     openedAt: position.openedAt.toISOString(),
