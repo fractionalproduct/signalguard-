@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AutopilotSettings } from "../../components/AutopilotSettings";
 import { OptionSettings } from "../../components/OptionSettings";
+import { OptionAutopilotSettings } from "../../components/OptionAutopilotSettings";
 
 export default async function SettingsPage() {
   return (
@@ -39,6 +40,7 @@ export default async function SettingsPage() {
 
       <AutopilotSettings />
       <OptionSettings />
+      <OptionAutopilotSettings />
     </section>
   );
 }
