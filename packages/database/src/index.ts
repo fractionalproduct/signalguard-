@@ -131,6 +131,8 @@ export {
   cancelProposal,
   reduceProposalQuantity,
   expireProposals,
+  setProposalAiSummary,
+  listProposalsNeedingAiSummary,
   type ListProposalsOptions,
   type SetProposalStatusResult,
   type SetRiskProfileResult,

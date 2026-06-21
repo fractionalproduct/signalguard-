@@ -25,6 +25,7 @@ function proposal(
     status: "DRAFT",
     quantity: null,
     notes: null,
+    aiSummary: null,
     source: "DETERMINISTIC",
     expiresAt: new Date("2026-06-19T12:00:00.000Z"),
     createdAt: new Date("2026-06-18T11:55:00.000Z"),
@@ -214,6 +215,22 @@ test("each row carries a trade-analysis verdict; clean proposal is PASS", () => 
   assert.equal(row.analysis.verdict, "PASS");
   assert.ok(row.analysis.score > 0);
   assert.ok(typeof row.analysis.headline === "string");
+});
+
+test("aiSummary defaults to null on the view, mirroring the proposal row", () => {
+  const view = buildProposalsView([proposal()], NOW);
+  assert.equal(view.rows[0]?.aiSummary, null);
+});
+
+test("aiSummary passes through to the view when present", () => {
+  const view = buildProposalsView(
+    [proposal({ aiSummary: "AAPL long looks clean; main risk is a tight stop." })],
+    NOW,
+  );
+  assert.equal(
+    view.rows[0]?.aiSummary,
+    "AAPL long looks clean; main risk is a tight stop.",
+  );
 });
 
 test("structurally bad proposal (stop above entry) is flagged AVOID", () => {

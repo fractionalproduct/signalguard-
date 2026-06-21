@@ -566,6 +566,10 @@ model TradeProposal {
   /// symbol nominator, re-scanned by us). A string (not enum) so new sources are
   /// migration-free. NEVER changes how the gate/sizing/risk engine treat the row.
   source            String              @default("DETERMINISTIC")
+  /// AI plain-English rationale (the "AI half" of the analysis gate), generated
+  /// once by a background cron. Null = not yet generated / unavailable. Display
+  /// only — never gates anything.
+  aiSummary         String?
   expiresAt         DateTime?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
