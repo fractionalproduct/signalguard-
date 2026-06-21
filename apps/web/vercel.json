@@ -41,6 +41,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/options-autopilot",
+      "schedule": "*/2 * * * *"
+    },
+    {
       "path": "/api/cron/evening-briefing",
       "schedule": "0 22 * * *"
     }

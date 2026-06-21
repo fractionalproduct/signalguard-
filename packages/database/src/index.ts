@@ -88,6 +88,13 @@ export {
   type OptionConfigPatch,
 } from "./option-config.js";
 export {
+  getOptionAutopilotConfig,
+  setOptionAutopilotConfig,
+  OPTION_AUTOPILOT_DEFAULTS,
+  type OptionAutopilotConfig,
+  type OptionAutopilotConfigPatch,
+} from "./option-autopilot-config.js";
+export {
   openPosition,
   openPositionFromFilledEntry,
   getPositionById,
