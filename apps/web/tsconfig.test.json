@@ -72,6 +72,8 @@
     "lib/ai-summary.ts",
     "lib/ai-summary.test.ts",
     "lib/option-select.ts",
-    "lib/option-select.test.ts"
+    "lib/option-select.test.ts",
+    "lib/alphavantage-insider.ts",
+    "lib/alphavantage-insider.test.ts"
   ]
 }

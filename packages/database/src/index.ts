@@ -157,6 +157,10 @@ export {
   type SetBrokerOrderIdResult,
 } from "./orders.js";
 export {
+  getInsiderCache,
+  setInsiderCache,
+} from "./insider-cache.js";
+export {
   createTaCandidate,
   listNewTaCandidates,
   setTaCandidateStatus,

@@ -262,6 +262,16 @@ model OptionAutopilotConfig {
   updatedAt DateTime @updatedAt
 }
 
+/// Cache of AlphaVantage insider-transaction data per symbol. AlphaVantage's
+/// free tier is ~25 requests/day, so the loader serves from here within a TTL
+/// instead of fetching on every research-page view. `payload` is the mapped
+/// InsiderTransaction[] JSON.
+model InsiderTransactionCache {
+  symbol    String   @id
+  payload   Json
+  fetchedAt DateTime @default(now())
+}
+
 /// A trade-symbol candidate from the TradingAgents sidecar
 /// (docs/tradingagents-integration-review.md). The sidecar WRITES these; the
 /// ta-ingest cron consumes NEW ones, runs OUR M9 scan on the symbol, and creates
