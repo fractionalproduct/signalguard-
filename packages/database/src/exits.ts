@@ -234,3 +234,55 @@ export async function createProtectiveExitOrders(
     };
   });
 }
+
+/** The position's STOP+TARGET legs that need a (re)submit to the broker. */
+export interface ResubmittableExitLegs {
+  stop: { orderId: string; clientOrderId: string; quantity: number };
+  target: { orderId: string; clientOrderId: string; quantity: number };
+}
+
+/**
+ * Protective exit legs that were CREATED (AUTHORIZED, oversell-reserved) but
+ * never confirmed at the broker — `brokerOrderId` is null, i.e. a prior OCO
+ * submit failed OR its state write was lost to a crash. Returns the STOP+TARGET
+ * pair for an IDEMPOTENT resubmission, or null when the position is already
+ * protected (legs SUBMITTED) or has no such pair.
+ *
+ * Closes the M13 gap: once createProtectiveExitOrders has reserved the legs, the
+ * monitor's next tick gets `already_protected` and would otherwise NEVER resubmit
+ * — leaving a position unprotected after a single failed submit. Two cases, both
+ * safe (neither can oversell):
+ *   - Submit failed BEFORE the broker placed the OCO (network error / 5xx — the
+ *     common case): the resubmit places it fresh and records the broker ids. FIXED.
+ *   - Broker placed the OCO but our state write was lost (crash in the gap): the
+ *     resubmit hits Alpaca's duplicate-client_order_id 422 and `submitOcoExit`
+ *     (which, unlike submitOrder, has NO duplicate-recovery) throws — the monitor
+ *     logs `resubmit_failed` and retries. The position is ALREADY protected at the
+ *     broker (Alpaca rejects the dup, never places a second bracket → no oversell);
+ *     only the DB stays unreconciled until the order-state-sync slice. Degraded,
+ *     not unsafe.
+ * Requires BOTH legs AUTHORIZED-without-a-brokerOrderId; a half-recorded position
+ * (one leg already SUBMITTED) returns null and is left to order-state sync. Touches
+ * NONE of the quantity reservation / reduce path.
+ */
+export async function listResubmittableExitLegs(
+  db: PrismaClient,
+  positionId: string,
+): Promise<ResubmittableExitLegs | null> {
+  const legs = await db.order.findMany({
+    where: {
+      parentPositionId: positionId,
+      orderKind: { in: ["STOP", "TARGET"] },
+      status: "AUTHORIZED",
+      brokerOrderId: null,
+    },
+    select: { id: true, clientOrderId: true, quantity: true, orderKind: true },
+  });
+  const stop = legs.find((l) => l.orderKind === "STOP");
+  const target = legs.find((l) => l.orderKind === "TARGET");
+  if (!stop || !target) return null;
+  return {
+    stop: { orderId: stop.id, clientOrderId: stop.clientOrderId, quantity: stop.quantity },
+    target: { orderId: target.id, clientOrderId: target.clientOrderId, quantity: target.quantity },
+  };
+}

@@ -114,8 +114,10 @@ export {
 export {
   createProtectiveExitOrders,
   applyExitFill,
+  listResubmittableExitLegs,
   type CreateProtectiveExitsResult,
   type ApplyExitFillResult,
+  type ResubmittableExitLegs,
 } from "./exits.js";
 export {
   createProposal,
