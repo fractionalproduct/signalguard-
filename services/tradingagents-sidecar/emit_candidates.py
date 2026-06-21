@@ -11,12 +11,14 @@ It NEVER supplies price, stop, target, probability, or sizing — SignalGuard's 
 scanner recomputes all of that downstream. The thesis is treated as untrusted
 free text by the consumer.
 
-SCAFFOLD STATUS: this file does not run in the SignalGuard repo. The host owner
-provides the TradingAgents install, ONE Western LLM key, and the host. The
-`decision -> action/confidence` extraction (see `map_decision`) is the
-load-bearing ASSUMPTION that MUST be validated against real `ta.propagate()`
-output before this influences even paper trades — TradingAgents' decision schema
-is loosely structured.
+VALIDATED against TradingAgents @ v0.2.5 (the integration points the scaffold
+previously only assumed): `TradingAgentsGraph(config=...)` config keys, the
+`propagate(company_name, "YYYY-MM-DD")` signature, and that the second return
+value is a 5-value rating string (Buy/Overweight/Hold/Underweight/Sell, mapped in
+`map_rating`) with the rationale in `final_state["final_trade_decision"]`. Still
+SCAFFOLD in that it does not run in the SignalGuard repo — the host owner
+provides the TradingAgents install, ONE Western LLM key, and the host; pin deps
++ a billing cap + the egress allowlist per the supply-chain review before live use.
 
 Defensive by construction: per-symbol try/except, request timeouts, and a hard
 rule never to crash the whole run because one symbol failed.
@@ -83,71 +85,83 @@ def read_config() -> dict:
 def build_graph(provider: str):
     """Construct the TradingAgents graph.
 
-    SCAFFOLD: import is local so the SignalGuard repo (no TradingAgents install)
-    can still `py_compile` this file. The exact config keys for selecting the
-    provider differ across TradingAgents versions — this is an ASSUMPTION to
-    validate against the installed version's `TradingAgentsGraph` signature /
-    its `default_config`.
+    Validated against TradingAgents @main (v0.2.5): TradingAgentsGraph(
+    selected_analysts, debug, config, callbacks) reads the provider/models from
+    config["llm_provider"], ["deep_think_llm"], ["quick_think_llm"],
+    ["backend_url"], ["temperature"]. The LLM API key itself is read by
+    TradingAgents from the provider's standard env var (OPENAI_API_KEY /
+    ANTHROPIC_API_KEY / GOOGLE_API_KEY / XAI_API_KEY).
+
+    SCAFFOLD: the import is local so the SignalGuard repo (no TradingAgents
+    install) can still `py_compile` this file.
     """
     # Import inside the function: TradingAgents is only present on the sidecar.
     from tradingagents.graph.trading_graph import TradingAgentsGraph  # type: ignore
 
-    # ASSUMPTION: TradingAgents reads provider/model from a config dict. The real
-    # key names (e.g. "llm_provider", "deep_think_llm", "quick_think_llm",
-    # "backend_url") MUST be confirmed against the installed version. We pass the
-    # provider through; the LLM API key itself is read by TradingAgents from the
-    # provider's standard env var (e.g. OPENAI_API_KEY / ANTHROPIC_API_KEY).
+    # Real config keys (default_config defaults: openai / gpt-5.5 / gpt-5.4-mini).
+    # Models are env-overridable so non-OpenAI providers (or a local Ollama via
+    # TA_BACKEND_URL) can set appropriate model ids. Keep the debate loop tight to
+    # bound LLM cost (the host MUST also enforce a hard billing cap).
     config = {
         "llm_provider": provider,
-        # Keep recursion/cost bounded — the debate loop calls the LLM many times
-        # per ticker (max_recur_limit defaults high). The host MUST also enforce
-        # a hard billing cap; this is only a soft guard.
-        "max_debate_rounds": 1,
-        "online_tools": True,
+        "max_debate_rounds": int(os.environ.get("TA_MAX_DEBATE_ROUNDS", "1")),
+        "max_risk_discuss_rounds": 1,
+        # max_recur_limit defaults to 100 — lower it to bound runaway recursion.
+        "max_recur_limit": int(os.environ.get("TA_MAX_RECUR_LIMIT", "30")),
     }
+    deep = os.environ.get("TA_DEEP_LLM", "").strip()
+    quick = os.environ.get("TA_QUICK_LLM", "").strip()
+    backend = os.environ.get("TA_BACKEND_URL", "").strip()
+    if deep:
+        config["deep_think_llm"] = deep
+    if quick:
+        config["quick_think_llm"] = quick
+    if backend:  # required for ollama / a self-hosted OpenAI-compatible endpoint
+        config["backend_url"] = backend
     return TradingAgentsGraph(config=config)
 
 
-def map_decision(decision: object) -> dict:
-    """Map TradingAgents' `decision` to {action, confidenceHint, thesisText}.
+# TradingAgents' SignalProcessor.process_signal returns ONE of these five
+# title-case ratings (validated @ v0.2.5: graph/signal_processing.py
+# `process_signal -> "Buy"|"Overweight"|"Hold"|"Underweight"|"Sell"`). We map to
+# our long-only action vocabulary; the ingest endpoint drops everything but BUY.
+_RATING_TO_ACTION = {
+    "buy": "BUY",
+    "overweight": "BUY",
+    "hold": "HOLD",
+    "underweight": "SELL",
+    "sell": "SELL",
+}
 
-    !!! LOAD-BEARING ASSUMPTION — VALIDATE AGAINST REAL OUTPUT !!!
-    TradingAgents' decision schema is loosely structured. `ta.propagate()`
-    returns `(state, decision)` where `decision` is, in current versions, a
-    free-text string containing a FINAL TRANSACTION PROPOSAL like
-    "**BUY**" / "SELL" / "HOLD" plus rationale — NOT a typed object. This mapper
-    makes a best-effort, defensive extraction:
-      - action: first of BUY/SELL/HOLD found (case-insensitive); default HOLD.
-      - confidenceHint: left None unless the real schema exposes a numeric score
-        (do NOT fabricate a number from prose — advisory field, scanner ignores
-        it for sizing anyway).
-      - thesisText: the decision text itself, truncated.
 
-    Before production: confirm the real return type/shape of `decision` (string
-    vs dict vs dataclass) and rewrite this to read the structured field if one
-    exists. Never trust this mapping blind.
+def map_rating(rating: object) -> str:
+    """Map TradingAgents' processed-signal RATING string to BUY/SELL/HOLD.
+
+    `rating` is the SECOND element of `propagate()` — a 5-value title-case string.
+    Exact, case-insensitive match; an unrecognized value is the SAFE default HOLD
+    (which the ingest endpoint drops), never a BUY.
     """
-    text = decision if isinstance(decision, str) else str(decision)
+    key = str(rating).strip().lower()
+    return _RATING_TO_ACTION.get(key, "HOLD")
 
-    upper = text.upper()
-    action = "HOLD"
-    # Order matters only for determinism; a real decision states exactly one.
-    for candidate in ("BUY", "SELL", "HOLD"):
-        if candidate in upper:
-            action = candidate
-            break
 
-    thesis = text.strip()
-    if len(thesis) > MAX_THESIS_LENGTH:
-        thesis = thesis[:MAX_THESIS_LENGTH]
+def extract_thesis(final_state: object) -> str | None:
+    """The rationale (untrusted free text → proposal.notes downstream).
 
-    return {
-        "action": action,
-        # ASSUMPTION: no reliable numeric confidence in the current free-text
-        # decision. Leave null rather than invent one.
-        "confidenceHint": None,
-        "thesisText": thesis or None,
-    }
+    The full Portfolio-Manager decision lives in
+    `final_state["final_trade_decision"]`; fall back to other report fields, then
+    None. Truncated to the server's cap.
+    """
+    text = None
+    if isinstance(final_state, dict):
+        for k in ("final_trade_decision", "trader_investment_plan", "investment_plan"):
+            v = final_state.get(k)
+            if isinstance(v, str) and v.strip():
+                text = v.strip()
+                break
+    if not text:
+        return None
+    return text[:MAX_THESIS_LENGTH]
 
 
 def post_candidate(ingest_url: str, ingest_token: str, payload: dict) -> bool:
@@ -199,26 +213,28 @@ def run() -> int:
     for symbol in config["symbols"]:
         # Per-symbol isolation: one symbol's failure NEVER aborts the run.
         try:
-            # ASSUMPTION: propagate(symbol, date) -> (state, decision). Confirm
-            # the date arg format (string "YYYY-MM-DD" vs date object) against
-            # the installed version.
-            _state, decision = graph.propagate(symbol, today)
-            mapped = map_decision(decision)
+            # Validated: propagate(company_name, trade_date="YYYY-MM-DD",
+            # asset_type="stock") -> (final_state, processed_signal_rating).
+            final_state, rating = graph.propagate(symbol, today)
+            action = map_rating(rating)
+            thesis = extract_thesis(final_state)
 
             payload = {
                 # Idempotency / dedup key — unique per (run-date, symbol). A
                 # re-delivered candidate is deduped by the server.
                 "agentRunId": f"ta-{today}-{symbol}",
                 "symbol": symbol,
-                "action": mapped["action"],
-                "confidenceHint": mapped["confidenceHint"],
-                "thesisText": mapped["thesisText"],
+                "action": action,
+                # No reliable numeric confidence in the rating — advisory only,
+                # left null (the scanner ignores it for sizing regardless).
+                "confidenceHint": None,
+                "thesisText": thesis,
                 "asOfDate": today,
             }
 
             if post_candidate(config["ingest_url"], config["ingest_token"], payload):
                 posted += 1
-                print(f"[emit] {symbol}: {mapped['action']} -> posted")
+                print(f"[emit] {symbol}: {rating!r} -> {action} -> posted")
             else:
                 failed += 1
         except Exception as exc:  # noqa: BLE001 — isolate, continue with next
