@@ -13,6 +13,7 @@ const navItems = [
   { href: "/congress", label: "Congress" },
   { href: "/research", label: "Research" },
   { href: "/trading", label: "Trading" },
+  { href: "/options", label: "Options" },
   { href: "/today", label: "Today" },
   { href: "/performance", label: "Performance" },
   { href: "/risk", label: "Risk" },
