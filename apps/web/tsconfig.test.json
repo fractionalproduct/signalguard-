@@ -69,6 +69,8 @@
     "lib/option-risk.test.ts",
     "lib/option-exit.ts",
     "lib/option-exit.test.ts",
+    "lib/ai-summary.ts",
+    "lib/ai-summary.test.ts",
     "lib/option-select.ts",
     "lib/option-select.test.ts"
   ]

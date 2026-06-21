@@ -344,6 +344,44 @@ export function cancelProposal(
 }
 
 /**
+ * Persist the AI plain-English summary onto a proposal. Idempotent overwrite —
+ * the background generator (cron) computes it once the deterministic verdict
+ * exists and stores it here so the /proposals view can read it cheaply. This is
+ * the AI half of the analysis surface; it never affects lifecycle or sizing.
+ */
+export async function setProposalAiSummary(
+  db: PrismaClient,
+  proposalId: string,
+  summary: string,
+): Promise<void> {
+  await db.tradeProposal.update({
+    where: { id: proposalId },
+    data: { aiSummary: summary },
+  });
+}
+
+/**
+ * Proposals still worth summarizing: no aiSummary yet AND not in a terminal
+ * state (REJECTED / EXPIRED / CANCELED). Terminal candidates are dead, so
+ * spending an LLM call on them is wasted — APPROVED and pre-decision rows are
+ * the live ones. Newest first, capped (the cron caps cost/latency per tick).
+ */
+export async function listProposalsNeedingAiSummary(
+  db: PrismaClient,
+  limit = 10,
+): Promise<TradeProposal[]> {
+  const take = Math.min(Math.max(limit, 1), 200);
+  return db.tradeProposal.findMany({
+    where: {
+      aiSummary: null,
+      status: { notIn: ["REJECTED", "EXPIRED", "CANCELED"] },
+    },
+    orderBy: { createdAt: "desc" },
+    take,
+  });
+}
+
+/**
  * Automatic expiry sweep: flip every pre-decision proposal whose `expiresAt`
  * has passed to EXPIRED in one statement. APPROVED/REJECTED proposals are
  * left untouched — approval freezes the clock, and a terminal proposal can't

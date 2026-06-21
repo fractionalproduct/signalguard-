@@ -231,6 +231,13 @@ function AnalysisDetail({ row }: { row: ProposalRow }) {
           ))}
         </ul>
       )}
+      {row.aiSummary !== null && (
+        <p className="analysis-ai-summary" aria-label={`AI-generated summary for ${row.symbol}`}>
+          <em>
+            <strong>AI:</strong> {row.aiSummary}
+          </em>
+        </p>
+      )}
     </div>
   );
 }
