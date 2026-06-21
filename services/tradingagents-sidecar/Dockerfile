@@ -32,6 +32,23 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --require-hashes --no-deps -r requirements.txt
 
+# ---- TradingAgents package itself (pinned, audited checkout) -----------------
+# requirements.txt provides the DEPS (hash-enforced above); this installs just
+# the `tradingagents` package from a PINNED commit with --no-deps so the
+# hash-enforced dependency set is authoritative. Pin TA_REF to the SHA you
+# audited (the supply-chain review looked at c15200d, v0.2.5). git is needed only
+# at build time.
+ARG TA_REPO=https://github.com/TauricResearch/TradingAgents.git
+ARG TA_REF=c15200d
+USER root
+RUN set -eux; \
+    apt-get update && apt-get install -y --no-install-recommends git; \
+    git clone "${TA_REPO}" /tmp/tradingagents; \
+    git -C /tmp/tradingagents checkout "${TA_REF}"; \
+    pip install --no-deps /tmp/tradingagents; \
+    rm -rf /tmp/tradingagents; \
+    apt-get purge -y git && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+
 # ---- Application code --------------------------------------------------------
 COPY emit_candidates.py ./
 
