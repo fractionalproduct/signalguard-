@@ -73,9 +73,16 @@ export class AlpacaMarketData implements MarketDataReadClient {
   }
 
   private async request<T>(path: string): Promise<T> {
-    const res = await this.fetchImpl(`${this.baseUrl}${path}`, {
+    // Market data is NEVER cacheable: under Next.js's patched fetch a GET is
+    // otherwise served from the (disk-persisted) Data Cache, so the risk engine
+    // could gate a trade on a STALE price/spread/movement snapshot. Force a live
+    // read. (Harmless for undici/injected fetch.) `cache` is typed via
+    // intersection because @types/node's RequestInit (ES2022 lib) omits it.
+    const init: Parameters<typeof fetch>[1] & { cache?: string } = {
       headers: this.headers,
-    });
+      cache: "no-store",
+    };
+    const res = await this.fetchImpl(`${this.baseUrl}${path}`, init);
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       throw new Error(

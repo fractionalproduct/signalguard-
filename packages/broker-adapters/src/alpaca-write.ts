@@ -109,7 +109,14 @@ export class AlpacaPaperExecutionClient implements BrokerWriteClient {
     path: string,
     body?: unknown,
   ): Promise<{ status: number; body: T }> {
-    const res = await this.fetchImpl(`${this.config.baseUrl}${path}`, {
+    // Broker state is NEVER cacheable: under Next.js's patched fetch a GET would
+    // otherwise be served from the (disk-persisted) Data Cache, so a
+    // reconcile/monitor cron would read a stale order/position status and miss a
+    // fill — leaving a filled position without its protective exits. `no-store`
+    // forces a live read on every broker request. (Harmless for undici/injected
+    // fetch.) `cache` is typed via intersection because @types/node's fetch
+    // RequestInit (ES2022 lib, no DOM) omits it though the runtime honors it.
+    const init: Parameters<typeof fetch>[1] & { cache?: string } = {
       method,
       headers: {
         "APCA-API-KEY-ID": this.config.keyId,
@@ -117,8 +124,10 @@ export class AlpacaPaperExecutionClient implements BrokerWriteClient {
         accept: "application/json",
         ...(body !== undefined ? { "content-type": "application/json" } : {}),
       },
+      cache: "no-store",
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
+    };
+    const res = await this.fetchImpl(`${this.config.baseUrl}${path}`, init);
     const text = await res.text().catch(() => "");
     let parsed: unknown = null;
     if (text) {
