@@ -65,13 +65,19 @@ export class AlpacaPaperBroker implements BrokerReadClient {
   }
 
   private async request<T>(path: string): Promise<T> {
-    const res = await this.fetchImpl(`${this.config.baseUrl}${path}`, {
+    // Broker state is NEVER cacheable: under Next.js's patched fetch a GET is
+    // otherwise served from the (disk-persisted) Data Cache, returning a stale
+    // account/position read. Force a live read. (Harmless for undici/injected
+    // fetch.) `cache` typed via intersection — @types/node RequestInit omits it.
+    const init: Parameters<typeof fetch>[1] & { cache?: string } = {
       headers: {
         "APCA-API-KEY-ID": this.config.keyId,
         "APCA-API-SECRET-KEY": this.config.secretKey,
         accept: "application/json",
       },
-    });
+      cache: "no-store",
+    };
+    const res = await this.fetchImpl(`${this.config.baseUrl}${path}`, init);
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       throw new Error(`Alpaca request failed (${res.status} ${res.statusText}): ${body.slice(0, 200)}`);

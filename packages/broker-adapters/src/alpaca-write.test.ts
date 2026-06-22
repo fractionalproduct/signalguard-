@@ -371,3 +371,29 @@ test("submitOrder refuses a non-BUY side", async () => {
     /BUY/i,
   );
 });
+
+test("request sends cache:no-store so Next.js never serves a stale broker read", async () => {
+  // Regression: under Next.js's patched fetch a GET broker read is served from
+  // the disk-persisted Data Cache unless cache:"no-store" is set, so reconcile
+  // missed a fill and left a filled position without protective exits.
+  let seenCache: unknown = "MISSING";
+  const capturingFetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+    seenCache = (init as { cache?: unknown } | undefined)?.cache ?? "MISSING";
+    return {
+      ok: true,
+      status: 200,
+      statusText: "",
+      json: async () => ({ id: "x", client_order_id: "c", symbol: "AAPL", status: "filled" }),
+      text: async () => JSON.stringify({ id: "x", client_order_id: "c", symbol: "AAPL", status: "filled" }),
+    } as Response;
+  }) as typeof fetch;
+
+  const client = new AlpacaPaperExecutionClient({
+    keyId: "k",
+    secretKey: "s",
+    baseUrl: PAPER_URL,
+    fetchImpl: capturingFetch,
+  });
+  await client.getOrderByClientId("c");
+  assert.equal(seenCache, "no-store");
+});
