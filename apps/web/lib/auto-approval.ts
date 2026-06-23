@@ -12,6 +12,35 @@
  */
 import { RISK_PROFILE_DEFAULTS, type RiskProfile } from "@signalguard/domain";
 
+/**
+ * The AUTONOMY allow-list — the explicit set of symbols autopilot may act on
+ * without a human. This is deliberately SEPARATE from discovery scope: the
+ * screener may *recommend* any symbol it finds (those become manual proposals),
+ * but the autonomous approve→authorize path is restricted to names the owner
+ * has explicitly vetted. Sourced from `AUTOPILOT_SYMBOL_ALLOWLIST`, falling back
+ * to `WATCHLIST_SYMBOLS`.
+ *
+ * FAIL-CLOSED: an empty/unset list means autopilot may auto-approve NOTHING.
+ * A symbol discovered by the screener can never auto-trade unless the owner
+ * adds it here.
+ */
+export function parseAutonomyAllowlist(
+  env: Record<string, string | undefined>,
+): Set<string> {
+  const raw = env.AUTOPILOT_SYMBOL_ALLOWLIST ?? env.WATCHLIST_SYMBOLS ?? "";
+  return new Set(
+    raw
+      .split(",")
+      .map((s) => s.trim().toUpperCase())
+      .filter((s) => s.length > 0),
+  );
+}
+
+/** True when `symbol` is on the autonomy allow-list (case-insensitive). */
+export function isAutonomyAllowed(symbol: string, allowlist: Set<string>): boolean {
+  return allowlist.has(symbol.trim().toUpperCase());
+}
+
 export interface AutoApprovalProposal {
   status: string;
   riskProfile: string;
