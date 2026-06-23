@@ -924,3 +924,175 @@ h2 {
 .autopilot-log__summary {
   color: #cfd5e3;
 }
+
+/* ---- Grouped side navigation (Trading / Intel Gathering / System) ---- */
+.nav-link-active {
+  background: rgba(245, 166, 35, 0.18);
+  font-weight: 700;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.nav-group-label {
+  flex: 1;
+  border-radius: 14px;
+  color: var(--fg);
+  padding: 10px 14px;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ffd38a;
+}
+.nav-group-label.as-button {
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+.nav-group-label:hover,
+.nav-group-label:focus-visible {
+  background: rgba(245, 166, 35, 0.13);
+  outline: none;
+}
+
+.nav-group-toggle {
+  background: none;
+  border: none;
+  color: #9aa3b2;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 10px;
+}
+.nav-group-toggle:hover,
+.nav-group-toggle:focus-visible {
+  background: rgba(245, 166, 35, 0.13);
+  color: var(--fg);
+  outline: none;
+}
+
+.nav-sublist {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 2px 0 6px 10px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(154, 163, 178, 0.18);
+}
+
+.nav-sublink {
+  border-radius: 12px;
+  color: var(--fg);
+  padding: 9px 12px;
+  text-decoration: none;
+  font-size: 14px;
+}
+.nav-sublink:hover,
+.nav-sublink:focus-visible {
+  background: rgba(245, 166, 35, 0.13);
+  outline: none;
+}
+
+/* ---- Per-page "what this page does" intro banner ---- */
+.page-intro {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  border: 1px solid rgba(154, 163, 178, 0.16);
+  border-radius: 18px;
+  background: rgba(245, 166, 35, 0.06);
+  padding: 12px 18px;
+  margin-bottom: 20px;
+}
+.page-intro-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ffd38a;
+  white-space: nowrap;
+}
+.page-intro-text {
+  margin: 0;
+  color: var(--fg);
+  opacity: 0.92;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ---- Risk & Trading hub cards ---- */
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+.hub-card {
+  border: 1px solid rgba(154, 163, 178, 0.16);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 18px;
+}
+.hub-card h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+.hub-stat {
+  font-size: 28px;
+  font-weight: 800;
+}
+.hub-muted {
+  color: #9aa3b2;
+  font-size: 13px;
+}
+.status-on {
+  color: #7ee0a2;
+  font-weight: 700;
+}
+.status-off {
+  color: #ff9b9b;
+  font-weight: 700;
+}
+
+/* ---- Good / Bad proposal tabs ---- */
+.tab-nav {
+  display: flex;
+  gap: 8px;
+  margin: 18px 0 14px;
+  border-bottom: 1px solid rgba(154, 163, 178, 0.18);
+}
+.tab-link {
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  color: var(--fg);
+  padding: 10px 16px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  opacity: 0.7;
+}
+.tab-link:hover,
+.tab-link:focus-visible {
+  background: rgba(245, 166, 35, 0.1);
+  opacity: 1;
+  outline: none;
+}
+.tab-link-active {
+  opacity: 1;
+  background: rgba(245, 166, 35, 0.14);
+  border-color: rgba(154, 163, 178, 0.18);
+}

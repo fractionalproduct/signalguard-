@@ -3,23 +3,8 @@ import type { ReactNode } from "react";
 import { logoutAction } from "../login/actions";
 import { EmergencyStopButton } from "./EmergencyStopButton";
 import { NotificationBell } from "./NotificationBell";
-
-const navItems = [
-  { href: "/home", label: "Home" },
-  { href: "/signals", label: "Signals" },
-  { href: "/alerts", label: "Alerts" },
-  { href: "/notifications", label: "Notifications" },
-  { href: "/proposals", label: "Proposals" },
-  { href: "/congress", label: "Congress" },
-  { href: "/research", label: "Research" },
-  { href: "/trading", label: "Trading" },
-  { href: "/options", label: "Options" },
-  { href: "/today", label: "Today" },
-  { href: "/performance", label: "Performance" },
-  { href: "/risk", label: "Risk" },
-  { href: "/sources", label: "Sources" },
-  { href: "/settings", label: "Settings" },
-];
+import { PageIntro } from "./PageIntro";
+import { SideNav } from "./SideNav";
 
 function StatusPill({ label }: { label: string }) {
   return (
@@ -86,14 +71,11 @@ export function AppShell({
       </header>
 
       <div className="shell-body">
-        <nav className="side-nav" aria-label="Beginner navigation">
-          {navItems.map((item) => (
-            <Link className="nav-link" href={item.href} key={item.href}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <main className="content-panel">{children}</main>
+        <SideNav />
+        <main className="content-panel">
+          <PageIntro />
+          {children}
+        </main>
       </div>
     </div>
   );
