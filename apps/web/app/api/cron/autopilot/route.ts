@@ -14,7 +14,11 @@ import {
 import { classifySession } from "@signalguard/market-sessions";
 import { sumCentsOnEtDay } from "@signalguard/performance";
 import { isAuthorizedCronRequest } from "../../../../lib/cron-auth";
-import { evaluateAutoApproval } from "../../../../lib/auto-approval";
+import {
+  evaluateAutoApproval,
+  isAutonomyAllowed,
+  parseAutonomyAllowlist,
+} from "../../../../lib/auto-approval";
 import { sizeProposalForApproval } from "../../../../lib/proposal-sizing";
 
 /**
@@ -105,6 +109,11 @@ export async function GET(req: Request): Promise<Response> {
       : Math.max(0, config.maxNewPositionsPerDay - newPositionsToday);
 
   const pending = await listProposals(db, { status: "PENDING_APPROVAL", limit: 50 });
+  // The autonomy allow-list — autopilot may only act on explicitly-vetted
+  // symbols. Discovery (the screener) can recommend any symbol into the manual
+  // queue, but a discovered name never auto-approves unless the owner adds it
+  // here. Fail-closed: empty list => nothing is autonomy-eligible.
+  const autonomyAllowlist = parseAutonomyAllowlist(process.env);
   const now = new Date();
   const decisions: Array<{ id: string; symbol: string; approve: boolean; reasons: string[]; evR: number }> = [];
   let authorized = 0;
@@ -117,6 +126,18 @@ export async function GET(req: Request): Promise<Response> {
     // and strand others — or leave THIS one APPROVED with no order. Any throw is
     // logged and the loop moves on; the next tick re-evaluates cleanly.
     try {
+    // Autonomy boundary: a symbol not on the explicit allow-list is NEVER an
+    // autonomous candidate — it stays in the manual queue for the owner. This
+    // is what keeps screener-discovered names out of the armed approve path.
+    if (!isAutonomyAllowed(p.symbol, autonomyAllowlist)) {
+      await recordAuditEvent({
+        type: "autopilot.skipped",
+        source: "trading-worker",
+        metadata: { proposalId: p.id, symbol: p.symbol, reasons: ["OFF_AUTONOMY_ALLOWLIST"] },
+      });
+      continue;
+    }
+
     const result = evaluateAutoApproval(
       {
         status: p.status,

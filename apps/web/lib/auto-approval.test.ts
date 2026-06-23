@@ -2,9 +2,35 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   evaluateAutoApproval,
+  isAutonomyAllowed,
+  parseAutonomyAllowlist,
   type AutoApprovalProposal,
   type AutoApprovalThresholds,
 } from "./auto-approval";
+
+test("autonomy allow-list: empty env is fail-closed (nothing allowed)", () => {
+  const allow = parseAutonomyAllowlist({});
+  assert.equal(allow.size, 0);
+  assert.equal(isAutonomyAllowed("AAPL", allow), false);
+});
+
+test("autonomy allow-list: falls back to WATCHLIST_SYMBOLS, case-insensitive", () => {
+  const allow = parseAutonomyAllowlist({
+    WATCHLIST_SYMBOLS: "aapl, MSFT ,nvda",
+  });
+  assert.equal(isAutonomyAllowed("AAPL", allow), true);
+  assert.equal(isAutonomyAllowed("msft", allow), true);
+  assert.equal(isAutonomyAllowed("TSLA", allow), false); // a discovered name
+});
+
+test("autonomy allow-list: explicit AUTOPILOT_SYMBOL_ALLOWLIST overrides watchlist", () => {
+  const allow = parseAutonomyAllowlist({
+    AUTOPILOT_SYMBOL_ALLOWLIST: "SPY",
+    WATCHLIST_SYMBOLS: "AAPL,MSFT",
+  });
+  assert.equal(isAutonomyAllowed("SPY", allow), true);
+  assert.equal(isAutonomyAllowed("AAPL", allow), false);
+});
 
 const NOW = new Date("2026-06-18T15:00:00Z");
 
