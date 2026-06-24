@@ -21,10 +21,23 @@ import { ApproveAvoidButton } from "./ApproveAvoidButton";
  * no order ever reaches the broker without the separate M12 execution gate,
  * and the broker is paper-only.
  */
-export function ProposalsList({ state }: { state: ProposalsState }) {
+export function ProposalsList({
+  state,
+  activeTab = "good",
+}: {
+  state: ProposalsState;
+  activeTab?: "good" | "bad";
+}) {
   if (state.status === "empty") return <EmptyCard />;
   if (state.status === "error")
     return <ErrorCard message={state.message} />;
+
+  const rows = state.view.rows;
+  // Good = tradeable (PASS / CAUTION); Bad = structurally AVOID.
+  const goodRows = rows.filter((r) => r.analysis.verdict !== "AVOID");
+  const badRows = rows.filter((r) => r.analysis.verdict === "AVOID");
+  const visible = activeTab === "bad" ? badRows : goodRows;
+
   return (
     <section className="page-card">
       <p className="eyebrow">Beginner view · PAPER TRADING</p>
@@ -37,10 +50,37 @@ export function ProposalsList({ state }: { state: ProposalsState }) {
         watchlist snapshots. Nothing here ever reaches the broker without
         explicit owner approval — and the broker itself is paper-only.
       </p>
-      <ProposalsTable rows={state.view.rows} />
+
+      <div className="tab-nav" role="tablist" aria-label="Proposal quality">
+        <Link
+          role="tab"
+          aria-selected={activeTab === "good"}
+          className={`tab-link${activeTab === "good" ? " tab-link-active" : ""}`}
+          href="/proposals?tab=good"
+        >
+          ✅ Good · PASS / CAUTION ({goodRows.length})
+        </Link>
+        <Link
+          role="tab"
+          aria-selected={activeTab === "bad"}
+          className={`tab-link${activeTab === "bad" ? " tab-link-active" : ""}`}
+          href="/proposals?tab=bad"
+        >
+          ⚠️ Bad · AVOID ({badRows.length})
+        </Link>
+      </div>
+
+      {visible.length === 0 ? (
+        <p className="muted" style={{ marginTop: 12 }}>
+          No {activeTab === "bad" ? "AVOID" : "PASS / CAUTION"} proposals right now.
+        </p>
+      ) : (
+        <ProposalsTable rows={visible} />
+      )}
+
       <p className="muted" style={{ marginTop: 12 }}>
-        Showing {state.view.totalProposals} proposal
-        {state.view.totalProposals === 1 ? "" : "s"}.
+        Showing {visible.length} {activeTab === "bad" ? "bad" : "good"} of{" "}
+        {rows.length} total proposal{rows.length === 1 ? "" : "s"}.
       </p>
     </section>
   );
