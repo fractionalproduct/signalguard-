@@ -35,3 +35,8 @@ export {
   type BotApiOptions,
   type FetchLike,
 } from "./telegram.js";
+export {
+  UserApiTelegramClient,
+  type MtprotoMessage,
+  type MtprotoReader,
+} from "./telegram-user.js";
