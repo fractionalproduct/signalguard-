@@ -43,6 +43,9 @@ ALLOWED_PROVIDERS = {"openai", "anthropic", "google", "xai", "ollama"}
 # not stall the whole watchlist run.
 INGEST_TIMEOUT_SECONDS = 20
 
+# How many work items to claim per pull in queue mode (server caps this at 50).
+QUEUE_PULL_LIMIT = int(os.environ.get("TA_QUEUE_LIMIT", "10"))
+
 # Length cap mirrored from the SignalGuard endpoint so we don't waste a round
 # trip on a thesis the server will reject as oversized.
 MAX_THESIS_LENGTH = 4000
@@ -76,8 +79,41 @@ def _today_iso() -> str:
     return _dt.date.today().isoformat()
 
 
+def _derive_queue_url(ingest_url: str) -> str:
+    """Build the analysis-queue pull URL from configured bases.
+
+    Prefer an explicit SIGNALGUARD_INGEST_BASE (scheme+host, no path); otherwise
+    derive it by stripping the path off SIGNALGUARD_INGEST_URL (which points at
+    /api/ta/candidates). The pull endpoint is /api/ta/analysis-queue on the same
+    SignalGuard host — the ONLY new surface the sidecar reads from. No new creds:
+    the same bearer token gates both.
+    """
+    base = os.environ.get("SIGNALGUARD_INGEST_BASE", "").strip().rstrip("/")
+    if not base:
+        # Strip path: keep scheme://host[:port] from the candidates ingest URL.
+        from urllib.parse import urlsplit, urlunsplit
+
+        parts = urlsplit(ingest_url)
+        base = urlunsplit((parts.scheme, parts.netloc, "", "", ""))
+    return f"{base}/api/ta/analysis-queue"
+
+
 def read_config() -> dict:
-    """Read + validate env. Fail loud on missing required config."""
+    """Read + validate env. Fail loud on missing required config.
+
+    TA_SOURCE selects the work source:
+      - "watchlist" (default): nominate from the static WATCHLIST_SYMBOLS list
+        (current behavior — `action` IS TradingAgents' verdict).
+      - "queue": PULL discovery-driven work items from SignalGuard's
+        /api/ta/analysis-queue (D4-B — `action` is SG's intent, `taVerdict` is
+        TradingAgents' opinion; they may differ).
+    """
+    source = os.environ.get("TA_SOURCE", "watchlist").strip().lower()
+    if source not in ("watchlist", "queue"):
+        raise SystemExit(
+            f"TA_SOURCE={source!r} invalid — expected 'watchlist' or 'queue'."
+        )
+
     symbols_raw = os.environ.get("WATCHLIST_SYMBOLS", "")
     symbols = [s.strip().upper() for s in symbols_raw.split(",") if s.strip()]
 
@@ -85,7 +121,9 @@ def read_config() -> dict:
     ingest_token = os.environ.get("SIGNALGUARD_INGEST_TOKEN", "").strip()
     provider = os.environ.get("TA_LLM_PROVIDER", "openai").strip().lower()
 
-    if not symbols:
+    # WATCHLIST_SYMBOLS is only required in watchlist mode; queue mode gets its
+    # symbols from the pull endpoint at runtime.
+    if source == "watchlist" and not symbols:
         raise SystemExit("WATCHLIST_SYMBOLS is empty — nothing to nominate.")
     if not ingest_url:
         raise SystemExit("SIGNALGUARD_INGEST_URL is not set.")
@@ -99,11 +137,66 @@ def read_config() -> dict:
         )
 
     return {
+        "source": source,
         "symbols": symbols,
         "ingest_url": ingest_url,
         "ingest_token": ingest_token,
+        "queue_url": _derive_queue_url(ingest_url),
         "provider": provider,
     }
+
+
+def fetch_queue_items(queue_url: str, ingest_token: str, limit: int) -> list[dict]:
+    """Claim up to `limit` work items from SignalGuard's analysis queue.
+
+    GET the token-gated endpoint; it atomically claims PENDING items and returns
+    {ok, items:[{id, symbol, action, discoveryReason}]}. Each item carries SG's
+    DISCOVERY INTENT in `action` (not the LLM verdict). Returns a sanitized list
+    of dicts; never raises to the caller — a queue failure yields [] so the run
+    ends cleanly instead of crashing.
+    """
+    url = f"{queue_url}?limit={int(limit)}"
+    req = urllib.request.Request(
+        url,
+        method="GET",
+        headers={"Authorization": f"Bearer {ingest_token}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=INGEST_TIMEOUT_SECONDS) as resp:
+            if not (200 <= resp.status < 300):
+                print(f"[emit] queue pull returned HTTP {resp.status}", file=sys.stderr)
+                return []
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        print(f"[emit] queue pull HTTPError {exc.code}: {exc.reason}", file=sys.stderr)
+        return []
+    except urllib.error.URLError as exc:
+        print(f"[emit] queue pull URLError: {exc.reason}", file=sys.stderr)
+        return []
+    except Exception as exc:  # noqa: BLE001 — never crash the run on a bad pull
+        print(f"[emit] queue pull unexpected error: {exc}", file=sys.stderr)
+        return []
+
+    if not isinstance(data, dict) or not isinstance(data.get("items"), list):
+        print("[emit] queue pull: unexpected response shape", file=sys.stderr)
+        return []
+
+    items: list[dict] = []
+    for raw in data["items"]:
+        # Defensive: ignore malformed items rather than trust the response blindly.
+        if not isinstance(raw, dict):
+            continue
+        symbol = raw.get("symbol")
+        item_id = raw.get("id")
+        if not isinstance(symbol, str) or not symbol.strip():
+            continue
+        if not isinstance(item_id, str) or not item_id.strip():
+            continue
+        action = raw.get("action")
+        if not isinstance(action, str) or action not in ("BUY", "SELL", "HOLD"):
+            action = "BUY"  # default SG intent if missing/odd
+        items.append({"id": item_id, "symbol": symbol.strip().upper(), "action": action})
+    return items
 
 
 def build_graph(provider: str):
@@ -288,9 +381,46 @@ def post_candidate(ingest_url: str, ingest_token: str, payload: dict) -> bool:
         return False
 
 
+def build_work_items(config: dict, today: str) -> list[dict]:
+    """Resolve the run's work items from the configured source.
+
+    Each work item is {symbol, sg_action, agent_run_id}:
+      - watchlist mode: one item per WATCHLIST_SYMBOLS entry. `sg_action` is None
+        — there is no SG intent, so the candidate's `action` IS TA's verdict (the
+        original nominator semantics, unchanged). agent_run_id = ta-{date}-{sym}.
+      - queue mode: one item per claimed queue row. `sg_action` is SG's discovery
+        intent (drives the candidate's `action`, never overwritten by the LLM).
+        agent_run_id = ta-q-{queue-id} so it can't collide with a same-day
+        watchlist run for the same symbol.
+    """
+    if config["source"] == "queue":
+        claimed = fetch_queue_items(
+            config["queue_url"], config["ingest_token"], QUEUE_PULL_LIMIT
+        )
+        return [
+            {
+                "symbol": it["symbol"],
+                "sg_action": it["action"],
+                "agent_run_id": f"ta-q-{it['id']}",
+            }
+            for it in claimed
+        ]
+    # watchlist mode (default, unchanged semantics).
+    return [
+        {"symbol": symbol, "sg_action": None, "agent_run_id": f"ta-{today}-{symbol}"}
+        for symbol in config["symbols"]
+    ]
+
+
 def run() -> int:
     config = read_config()
     today = _today_iso()
+
+    work_items = build_work_items(config, today)
+    if not work_items:
+        # Empty queue (or empty pull) is a clean no-op, not a failure.
+        print(f"[emit] no work items (source={config['source']}); nothing to do.")
+        return 0
 
     # Build the graph once. If TradingAgents itself can't be constructed (missing
     # install / bad provider config), fail the whole run loud — there is nothing
@@ -303,28 +433,34 @@ def run() -> int:
 
     posted = 0
     failed = 0
-    for symbol in config["symbols"]:
+    for item in work_items:
+        symbol = item["symbol"]
         # Per-symbol isolation: one symbol's failure NEVER aborts the run.
         try:
             # Validated: propagate(company_name, trade_date="YYYY-MM-DD",
             # asset_type="stock") -> (final_state, processed_signal_rating).
             final_state, rating = graph.propagate(symbol, today)
-            action = map_rating(rating)
+            ta_verdict = map_rating(rating)
             thesis = extract_thesis(final_state)
             report = build_analysis_report(final_state)
             consensus = compute_consensus(report, symbol, today)
 
+            # D4-B core semantic:
+            #  - queue mode: `action` is SignalGuard's discovery intent (from the
+            #    queue item), NEVER the LLM verdict. `taVerdict` carries TA's own
+            #    opinion — they MAY differ (BUY vs SELL) and that conflict is kept.
+            #  - watchlist mode: no SG intent, so `action` IS TA's verdict (the
+            #    original nominator behavior, drop non-BUY downstream).
+            sg_action = item["sg_action"]
+            action = sg_action if sg_action is not None else ta_verdict
+
             payload = {
-                # Idempotency / dedup key — unique per (run-date, symbol). A
-                # re-delivered candidate is deduped by the server.
-                "agentRunId": f"ta-{today}-{symbol}",
+                # Idempotency / dedup key. In queue mode this is ta-q-{queue-id}
+                # so a queued symbol can't collide with a same-day watchlist run.
+                "agentRunId": item["agent_run_id"],
                 "symbol": symbol,
-                # In nominator mode `action` IS TA's verdict (drop non-BUY). When
-                # this sidecar is later driven by SignalGuard discovery (D4-B),
-                # `action` becomes the SG BUY intent and `taVerdict` stays as TA's
-                # opinion — so we populate both now for forward-compatibility.
                 "action": action,
-                "taVerdict": action,
+                "taVerdict": ta_verdict,
                 # No reliable numeric confidence in the rating — advisory only,
                 # left null (the scanner ignores it for sizing regardless).
                 "confidenceHint": None,
@@ -338,7 +474,7 @@ def run() -> int:
 
             if post_candidate(config["ingest_url"], config["ingest_token"], payload):
                 posted += 1
-                print(f"[emit] {symbol}: {rating!r} -> {action} -> posted")
+                print(f"[emit] {symbol}: action={action} taVerdict={ta_verdict} -> posted")
             else:
                 failed += 1
         except Exception as exc:  # noqa: BLE001 — isolate, continue with next
@@ -346,10 +482,10 @@ def run() -> int:
             print(f"[emit] {symbol}: FAILED ({exc})", file=sys.stderr)
 
     print(f"[emit] done: {posted} posted, {failed} failed, "
-          f"{len(config['symbols'])} symbols")
-    # Non-zero exit only if EVERY symbol failed (signals a systemic problem to
-    # the scheduler); partial failure is expected and tolerated.
-    return 0 if posted > 0 or not config["symbols"] else 1
+          f"{len(work_items)} items (source={config['source']})")
+    # Non-zero exit only if EVERY item failed (signals a systemic problem to the
+    # scheduler); partial failure is expected and tolerated.
+    return 0 if posted > 0 or not work_items else 1
 
 
 if __name__ == "__main__":

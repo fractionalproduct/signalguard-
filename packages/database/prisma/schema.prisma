@@ -309,6 +309,37 @@ model TaCandidate {
   @@index([status, createdAt])
 }
 
+/// The TradingAgents analysis work queue (D4-B, discovery-driven mode). When the
+/// sidecar runs in `queue` mode it PULLS items from here (via GET
+/// /api/ta/analysis-queue) instead of nominating from a static watchlist. The
+/// row carries SignalGuard's DISCOVERY INTENT for a symbol — `action` is what SG
+/// wants TradingAgents to evaluate (default "BUY"), NOT TradingAgents' own
+/// opinion. TradingAgents' opinion comes back later as TaCandidate.taVerdict and
+/// MAY differ (action=BUY, taVerdict=SELL is a kept conflict, never a drop).
+///
+/// The sidecar has NO DB creds — it only ever reads the claimed items through the
+/// token-gated HTTP endpoint. Producers (SG discovery / a manual seed / a
+/// watchlist-seed cron) write here via enqueueTaAnalysis. Status is a plain
+/// string ("PENDING" | "CLAIMED" | "DONE"), not a Prisma enum, so new states stay
+/// migration-free. No @@unique on (symbol,status) — that is too strict across DONE
+/// rows; PENDING dedupe is enforced in enqueueTaAnalysis instead.
+model TaAnalysisQueue {
+  id String @id @default(cuid())
+  symbol String
+  /// SignalGuard's discovery intent for this symbol — "BUY" by default. This is
+  /// NOT the LLM verdict; it is never overwritten by TradingAgents' opinion.
+  action String @default("BUY")
+  /// Why SG queued this symbol (e.g. "MOVERS", "manual-seed"), for audit. Free
+  /// text from a trusted producer; display/metadata only.
+  discoveryReason String?
+  /// "PENDING" (awaiting pull) | "CLAIMED" (handed to the sidecar) | "DONE".
+  status String @default("PENDING")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+}
+
 // --- Milestone 5: source intelligence & signals --------------------------------
 // Mirrors the types in @signalguard/domain. Source content is treated as hostile
 // data; instructions inside it are never executed (AGENTS.md §2). No connector
