@@ -29,7 +29,16 @@ export async function generateAndPersistProposal(
   db: PrismaClient,
   marketData: MarketDataReadClient,
   symbol: string,
-  opts: { source?: string; notes?: string | null; riskProfile?: string } = {},
+  opts: {
+    source?: string;
+    notes?: string | null;
+    riskProfile?: string;
+    // TradingAgents carry-through metadata. Display/conflict only — these never
+    // touch the scanner, gate, sizing, or risk engine.
+    taVerdict?: string | null;
+    consensusTally?: unknown;
+    analysisReport?: unknown;
+  } = {},
 ): Promise<{ created: boolean }> {
   const end = new Date();
   // ~1y of daily bars = comfortable buffer for the 20-bar horizon scan.
@@ -60,6 +69,9 @@ export async function generateAndPersistProposal(
 
   draft.source = opts.source;
   draft.notes = opts.notes ?? draft.notes;
+  draft.taVerdict = opts.taVerdict;
+  draft.consensusTally = opts.consensusTally;
+  draft.analysisReport = opts.analysisReport;
   await createProposal(db, draft);
   return { created: true };
 }

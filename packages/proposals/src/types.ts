@@ -25,4 +25,12 @@ export interface ProposalDraft {
    * default) | "TRADING_AGENTS" (LLM symbol nominator, re-scanned by us).
    * Display + audit only — the gate, sizing, and risk engine stay source-blind. */
   source?: string;
+  /** TradingAgents' OWN BUY/SELL/HOLD opinion carried from the candidate —
+   * distinct from the originating intent. Display/conflict metadata only;
+   * NEVER affects the gate, sizing, or risk engine. */
+  taVerdict?: string | null;
+  /** The multi-LLM vote tally carried from the candidate. Display only. */
+  consensusTally?: unknown;
+  /** The full analyst reports carried from the candidate. Display only. */
+  analysisReport?: unknown;
 }

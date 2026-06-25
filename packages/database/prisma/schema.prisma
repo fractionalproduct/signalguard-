@@ -294,6 +294,15 @@ model TaCandidate {
   status String @default("NEW")
   /// Why dropped (off_watchlist / not_buy / scan_failed), for audit.
   dropReason String?
+  /// TradingAgents' OWN BUY/SELL/HOLD opinion — DISTINCT from `action` (the
+  /// originating intent). Display/conflict metadata only; NEVER gates the drop
+  /// decision (a BUY with taVerdict "SELL" is still ingested as conflict data).
+  taVerdict String?
+  /// The multi-LLM vote tally behind the verdict. Display/metadata only.
+  consensusTally Json?
+  /// The full analyst reports (market/sentiment/news/fundamentals/bull-bear/
+  /// trader plan). Display/metadata only; never parsed for control.
+  analysisReport Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -580,6 +589,14 @@ model TradeProposal {
   /// once by a background cron. Null = not yet generated / unavailable. Display
   /// only — never gates anything.
   aiSummary         String?
+  /// TradingAgents' OWN BUY/SELL/HOLD opinion carried from the candidate —
+  /// DISTINCT from the originating intent. Display/conflict metadata only;
+  /// NEVER affects the gate, sizing, or risk engine.
+  taVerdict         String?
+  /// The multi-LLM vote tally carried from the candidate. Display only.
+  consensusTally    Json?
+  /// The full analyst reports carried from the candidate. Display only.
+  analysisReport    Json?
   expiresAt         DateTime?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt

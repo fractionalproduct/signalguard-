@@ -38,6 +38,8 @@ const MAX_AGENT_RUN_ID_LENGTH = 200;
 const MAX_SYMBOL_LENGTH = 16;
 /** Defensive batch size cap — mirrors the "oversized" guard spirit. */
 const MAX_BATCH = 200;
+/** Cap the serialized analyst report so a giant payload can't bloat the row. */
+const MAX_ANALYSIS_REPORT_LENGTH = 60_000;
 
 const ALLOWED_ACTIONS = new Set(["BUY", "SELL", "HOLD"]);
 
@@ -48,7 +50,15 @@ type ValidatedCandidate = {
   confidenceHint: number | null;
   thesisText: string | null;
   asOfDate: Date;
+  taVerdict: string | null;
+  consensusTally: unknown;
+  analysisReport: unknown;
 };
+
+/** A non-null, non-array plain object — what the Json carry-through fields must be. */
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
 
 type ValidationResult =
   | { ok: true; value: ValidatedCandidate }
@@ -117,9 +127,53 @@ function validateCandidate(raw: unknown): ValidationResult {
     asOfDate = parsed;
   }
 
+  // Optional taVerdict: TradingAgents' OWN opinion, distinct from `action`. If
+  // present it MUST be BUY/SELL/HOLD. It is conflict/display metadata only — it
+  // NEVER causes a drop downstream (a BUY with taVerdict "SELL" is still ingested).
+  let taVerdict: string | null = null;
+  if (obj.taVerdict !== undefined && obj.taVerdict !== null) {
+    if (typeof obj.taVerdict !== "string" || !ALLOWED_ACTIONS.has(obj.taVerdict)) {
+      return { ok: false, reason: "taVerdict_invalid" };
+    }
+    taVerdict = obj.taVerdict;
+  }
+
+  // Optional consensusTally: a structured vote tally. If present it MUST be a
+  // non-null, non-array object. Stored verbatim; never parsed for control.
+  let consensusTally: unknown = null;
+  if (obj.consensusTally !== undefined && obj.consensusTally !== null) {
+    if (!isPlainObject(obj.consensusTally)) {
+      return { ok: false, reason: "consensusTally_invalid" };
+    }
+    consensusTally = obj.consensusTally;
+  }
+
+  // Optional analysisReport: the full analyst reports. If present it MUST be a
+  // non-null, non-array object and bounded in serialized size. Stored verbatim.
+  let analysisReport: unknown = null;
+  if (obj.analysisReport !== undefined && obj.analysisReport !== null) {
+    if (!isPlainObject(obj.analysisReport)) {
+      return { ok: false, reason: "analysisReport_invalid" };
+    }
+    if (JSON.stringify(obj.analysisReport).length > MAX_ANALYSIS_REPORT_LENGTH) {
+      return { ok: false, reason: "analysisReport_too_long" };
+    }
+    analysisReport = obj.analysisReport;
+  }
+
   return {
     ok: true,
-    value: { agentRunId, symbol, action, confidenceHint, thesisText, asOfDate },
+    value: {
+      agentRunId,
+      symbol,
+      action,
+      confidenceHint,
+      thesisText,
+      asOfDate,
+      taVerdict,
+      consensusTally,
+      analysisReport,
+    },
   };
 }
 

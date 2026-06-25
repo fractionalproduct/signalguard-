@@ -22,6 +22,13 @@ export interface CreateTaCandidateInput {
   /** Untrusted free-text rationale. */
   thesisText?: string | null;
   asOfDate: Date;
+  /** TradingAgents' OWN BUY/SELL/HOLD opinion — distinct from `action` (the
+   * originating intent). Conflict/display metadata only; NEVER drops a candidate. */
+  taVerdict?: string | null;
+  /** The multi-LLM vote tally. Display/metadata only. */
+  consensusTally?: unknown;
+  /** The full analyst reports. Display/metadata only; never parsed. */
+  analysisReport?: unknown;
 }
 
 export type CreateTaCandidateResult =
@@ -48,6 +55,16 @@ export async function createTaCandidate(
         thesisText: input.thesisText ?? null,
         asOfDate: input.asOfDate,
         status: "NEW",
+        taVerdict: input.taVerdict ?? null,
+        // Json columns: an absent value is stored as an explicit JSON null
+        // (Prisma.JsonNull). A plain `null` is rejected by the generated input
+        // types for nullable Json fields.
+        consensusTally:
+          (input.consensusTally as Prisma.InputJsonValue | undefined) ??
+          Prisma.JsonNull,
+        analysisReport:
+          (input.analysisReport as Prisma.InputJsonValue | undefined) ??
+          Prisma.JsonNull,
       },
       select: { id: true },
     });

@@ -96,7 +96,15 @@ export async function GET(req: Request): Promise<Response> {
         db,
         marketData,
         canonicalSymbol,
-        { source: "TRADING_AGENTS", notes: candidate.thesisText },
+        {
+          source: "TRADING_AGENTS",
+          notes: candidate.thesisText,
+          // Carry the verdict + consensus + reports onto the proposal as
+          // display/conflict metadata. The drop logic above is unchanged.
+          taVerdict: candidate.taVerdict,
+          consensusTally: candidate.consensusTally,
+          analysisReport: candidate.analysisReport,
+        },
       );
       if (created) {
         await setTaCandidateStatus(db, candidate.id, "INGESTED");

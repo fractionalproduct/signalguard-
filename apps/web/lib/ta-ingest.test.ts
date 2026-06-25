@@ -61,3 +61,14 @@ test("an empty watchlist drops every BUY off_watchlist", () => {
     { decision: "DROP", reason: "off_watchlist" },
   );
 });
+
+test("taVerdict never causes a drop (BUY + taVerdict SELL is still ingested)", () => {
+  // taVerdict is TradingAgents' OWN opinion — conflict metadata for a later
+  // Fuse stage, NOT a drop gate. A BUY intent on the watchlist must classify
+  // INGEST even when the verdict disagrees. The two-mode drop rule (action +
+  // watchlist only) is unchanged.
+  assert.deepEqual(
+    classifyCandidate({ symbol: "NVDA", action: "BUY", taVerdict: "SELL" }, WATCHLIST),
+    { decision: "INGEST" },
+  );
+});
