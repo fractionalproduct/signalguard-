@@ -23,7 +23,7 @@
 
 ## Required controls BEFORE it influences even paper trades
 1. **Pin deps ourselves** (H1) — build from a hashed lock we audit, not their `pip install .`.
-2. **Default-deny egress allowlist** (enforces H2 + L1): allow only our chosen LLM host (`api.openai.com` **or** `api.anthropic.com`) + the data hosts actually used (Yahoo, AlphaVantage, FRED, Reddit, StockTwits) + `files.pythonhosted.org` (build). **Block all Chinese endpoints** (`*.aliyuncs.com`, `api.deepseek.com`, `api.z.ai`, `open.bigmodel.cn`, `api.minimax*`, `api.moonshot.ai`) and `api.tauric.ai`.
+2. **Default-deny egress allowlist** (enforces H2 + L1): allow only our chosen LLM host (`api.openai.com` **or** `api.anthropic.com`) **+ `api.deepseek.com` (DeepSeek EXCEPTION, owner decision 2026-06-25)** + the data hosts actually used (Yahoo, AlphaVantage, FRED, Reddit, StockTwits) + `files.pythonhosted.org` (build). **Block all OTHER Chinese endpoints** (`*.aliyuncs.com`, `api.z.ai`, `open.bigmodel.cn`, `api.minimax*`, `api.moonshot.ai`) and `api.tauric.ai`. *(DeepSeek moved from block→allow per the exception; see `tradingagents-discovery-to-execution-prd.md` §5/§8.)*
 3. **Dedicated minimal secret** (M3) — one provider key, capped, sidecar-only.
 4. **Container lockdown** (M2) — non-root (already), read-only FS, cap-drop, pids/mem limits.
 5. **Cost cap** — multi-agent debate loops call the LLM many times/ticker (`max_recur_limit: 100`); a hard spend cap prevents billing-DoS even absent a bug.

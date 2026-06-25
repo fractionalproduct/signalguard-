@@ -34,8 +34,11 @@ Both Critical, both **contained by the §2/§3 design** — but only if that des
 
 Lower-severity, already-mitigated: a *fabricated* ticker is mostly rejected by Alpaca paper (the real risk is a real-but-manipulated ticker — handled by the whitelist + manipulation gate); thesis text is **untrusted** (lands in `notes` only, HTML-escaped, never parsed for control); validate/clamp the candidate JSON at the boundary.
 
-## 5. LLM provider policy — NO Chinese LLMs
-TradingAgents is **provider-agnostic** — you choose which LLM each agent uses. Its support list *includes* Chinese models (DeepSeek, Qwen, GLM, MiniMax); **we simply never configure those.** Approved alternatives:
+## 5. LLM provider policy — NO Chinese LLMs (EXCEPTION: DeepSeek)
+
+> **EXCEPTION (owner decision, 2026-06-25): DeepSeek (`api.deepseek.com`) is PERMITTED** — used in the consensus panel; the owner accepts the data-egress/jurisdiction tradeoff. Qwen, GLM/Zhipu, MiniMax, and Kimi/Moonshot remain banned. See `tradingagents-discovery-to-execution-prd.md` §5 invariant #7. Everywhere this section says "ban the Chinese providers," read it as "ban all EXCEPT DeepSeek."
+
+TradingAgents is **provider-agnostic** — you choose which LLM each agent uses. Its support list *includes* Chinese models (DeepSeek, Qwen, GLM, MiniMax); **we simply never configure those (except DeepSeek, per the exception above).** Approved alternatives:
 
 | Option | Notes |
 |---|---|
