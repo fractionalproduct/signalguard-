@@ -6,6 +6,7 @@ import type {
   ProposalActivityRow,
   ProposalDetailView,
 } from "../../lib/proposal-detail-view";
+import { TaAnalysisPanel } from "./TaAnalysisPanel";
 
 /**
  * Read-only drill-down for a single proposal: the full trade levels, sized
@@ -81,6 +82,9 @@ export function ProposalDetail({ state }: { state: ProposalDetailState }) {
           title={v.expiresAt ?? undefined}
         />
       </dl>
+
+      <h2>TradingAgents analysis</h2>
+      <TaAnalysisPanel analysis={v.taAnalysis} />
 
       <h2>Notes</h2>
       {v.notesEditable ? (

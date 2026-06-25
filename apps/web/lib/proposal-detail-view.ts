@@ -21,6 +21,48 @@ export interface ProposalActivityRow {
   detail: string | null;
 }
 
+/** One analyst report section, normalized for display. */
+export interface TaReportSection {
+  /** Stable key from `analysisReport` (e.g. "market_report"). */
+  key: string;
+  /** Human label for the section header. */
+  label: string;
+  /** The raw report body — rendered as plain text, never parsed. */
+  body: string;
+  /** Whether the collapsible card is open by default. */
+  defaultOpen: boolean;
+}
+
+/** One model's vote in the multi-LLM consensus, normalized for display. */
+export interface TaConsensusVote {
+  label: string;
+  vote: string;
+  /** 0..1 conviction, or null when absent/malformed. */
+  confidence: number | null;
+}
+
+/** Normalized multi-LLM consensus tally for display. */
+export interface TaConsensusView {
+  buy: number;
+  sell: number;
+  hold: number;
+  decision: string | null;
+  /** Agreement as a whole-number percent (0..100), or null when absent. */
+  agreementPct: number | null;
+  votes: ReadonlyArray<TaConsensusVote>;
+}
+
+/** The TradingAgents rich analysis attached to a proposal, normalized for
+ * display. Null when the proposal carries no TA analysis at all. */
+export interface TaAnalysisView {
+  /** TradingAgents' own BUY/SELL/HOLD verdict, or null. */
+  verdict: string | null;
+  /** Present analyst report sections, in the fixed display order. */
+  sections: ReadonlyArray<TaReportSection>;
+  /** The consensus tally, or null when absent/malformed. */
+  consensus: TaConsensusView | null;
+}
+
 export interface ProposalDetailView {
   id: string;
   symbol: string;
@@ -46,6 +88,9 @@ export interface ProposalDetailView {
   /** False when the audit query failed/degraded — distinguishes "no activity"
    * from "couldn't read activity" so the UI never implies a complete history. */
   activityAvailable: boolean;
+  /** TradingAgents rich analysis (reports + consensus), or null when the
+   * proposal carries none. Untrusted display content — never parsed. */
+  taAnalysis: TaAnalysisView | null;
 }
 
 const EVENT_LABELS: Record<string, string> = {
@@ -55,6 +100,21 @@ const EVENT_LABELS: Record<string, string> = {
   "proposal.quantity_reduced": "Quantity reduced",
   "proposal.risk_profile_changed": "Risk profile changed",
 };
+
+/** Analyst-report section keys → human labels, in the FIXED display order.
+ * Sections absent from `analysisReport` are omitted. `final_trade_decision`
+ * is the only one expanded by default. */
+const TA_SECTIONS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: "market_report", label: "📊 Market / Technical" },
+  { key: "sentiment_report", label: "💬 Sentiment / Social" },
+  { key: "news_report", label: "📰 News & Macro" },
+  { key: "fundamentals_report", label: "🏦 Fundamentals" },
+  { key: "investment_plan", label: "🔬 Research Manager (Bull vs Bear)" },
+  { key: "trader_investment_plan", label: "💼 Trader Plan" },
+  { key: "final_trade_decision", label: "⚖️ Portfolio Manager Decision" },
+];
+
+const TA_DEFAULT_OPEN_KEY = "final_trade_decision";
 
 export function buildProposalDetailView(
   proposal: TradeProposal,
@@ -88,6 +148,84 @@ export function buildProposalDetailView(
     isExpired: expiresAt ? expiresAt.getTime() < nowMs : false,
     activity: events.map((e) => buildActivityRow(e, nowMs)),
     activityAvailable,
+    taAnalysis: buildTaAnalysis(proposal),
+  };
+}
+
+/** Normalize the proposal's TradingAgents fields into a display view, or null
+ * when none are present. Every field is untrusted free-form JSON (Prisma
+ * `Json?`), so — like `summarizeMetadata` — every access is guarded and never
+ * parsed for control. */
+export function buildTaAnalysis(proposal: TradeProposal): TaAnalysisView | null {
+  const sections = buildTaSections(proposal.analysisReport);
+  const consensus = buildTaConsensus(proposal.consensusTally);
+  const verdict =
+    typeof proposal.taVerdict === "string" && proposal.taVerdict.length > 0
+      ? proposal.taVerdict
+      : null;
+
+  // Nothing to show: omit the whole panel. taVerdict alone is metadata that the
+  // panel only renders alongside the consensus, so it doesn't keep the panel open.
+  if (sections.length === 0 && consensus === null) return null;
+
+  return { verdict, sections, consensus };
+}
+
+function buildTaSections(report: unknown): ReadonlyArray<TaReportSection> {
+  if (typeof report !== "object" || report === null) return [];
+  const r = report as Record<string, unknown>;
+  const out: TaReportSection[] = [];
+  for (const { key, label } of TA_SECTIONS) {
+    const body = r[key];
+    // Only render present, non-empty string sections.
+    if (typeof body !== "string" || body.length === 0) continue;
+    out.push({ key, label, body, defaultOpen: key === TA_DEFAULT_OPEN_KEY });
+  }
+  return out;
+}
+
+function buildTaConsensus(tally: unknown): TaConsensusView | null {
+  if (typeof tally !== "object" || tally === null) return null;
+  const t = tally as Record<string, unknown>;
+
+  const counts = (typeof t.tally === "object" && t.tally !== null
+    ? (t.tally as Record<string, unknown>)
+    : {}) as Record<string, unknown>;
+  const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+
+  const decision =
+    typeof t.decision === "string" && t.decision.length > 0 ? t.decision : null;
+
+  // Agreement is assumed to be a 0..1 fraction; render as a whole-number percent.
+  const agreementPct =
+    typeof t.agreement === "number" && Number.isFinite(t.agreement)
+      ? Math.round(t.agreement * 100)
+      : null;
+
+  const votes: TaConsensusVote[] = Array.isArray(t.votes)
+    ? t.votes.flatMap((raw): TaConsensusVote[] => {
+        if (typeof raw !== "object" || raw === null) return [];
+        const vo = raw as Record<string, unknown>;
+        return [
+          {
+            label: typeof vo.label === "string" ? vo.label : "—",
+            vote: typeof vo.vote === "string" ? vo.vote : "—",
+            confidence:
+              typeof vo.confidence === "number" && Number.isFinite(vo.confidence)
+                ? vo.confidence
+                : null,
+          },
+        ];
+      })
+    : [];
+
+  return {
+    buy: num(counts.BUY),
+    sell: num(counts.SELL),
+    hold: num(counts.HOLD),
+    decision,
+    agreementPct,
+    votes,
   };
 }
 
