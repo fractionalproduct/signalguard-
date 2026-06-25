@@ -50,7 +50,7 @@ RUN set -eux; \
     apt-get purge -y git && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 # ---- Application code --------------------------------------------------------
-COPY emit_candidates.py ./
+COPY emit_candidates.py consensus.py ./
 
 # ---- Non-root runtime user (control 4) --------------------------------------
 # Create a dedicated unprivileged user and a home for TradingAgents' cache

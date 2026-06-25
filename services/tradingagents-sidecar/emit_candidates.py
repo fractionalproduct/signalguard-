@@ -47,6 +47,30 @@ INGEST_TIMEOUT_SECONDS = 20
 # trip on a thesis the server will reject as oversized.
 MAX_THESIS_LENGTH = 4000
 
+# Caps for the full analyst reports. The server rejects an analysisReport whose
+# serialised JSON exceeds 60000 chars, so we cap per-section AND enforce a total
+# serialised budget below that (JSON escaping of newlines inflates size).
+MAX_SECTION_LENGTH = 6000
+MAX_REPORT_JSON = 55000
+
+# Whether to poll the multi-LLM consensus panel. Off by default: the panel needs
+# several provider keys + egress to several LLM hosts (widens the sidecar's
+# secret/egress surface — see the owner checklist). Set TA_ENABLE_CONSENSUS=1
+# once those keys/allowlist are in place.
+ENABLE_CONSENSUS = os.environ.get("TA_ENABLE_CONSENSUS", "").strip() in ("1", "true", "yes")
+
+# Reports surfaced to SignalGuard's proposal detail (untrusted display content),
+# in display order. Mirrors the Streamlit tool's REPORT_DISPLAY.
+_REPORT_SECTIONS = [
+    ("market_report", "Market / Technical"),
+    ("sentiment_report", "Sentiment / Social"),
+    ("news_report", "News & Macro"),
+    ("fundamentals_report", "Fundamentals"),
+    ("investment_plan", "Research Manager (Bull vs Bear)"),
+    ("trader_investment_plan", "Trader Plan"),
+    ("final_trade_decision", "Portfolio Manager Decision"),
+]
+
 
 def _today_iso() -> str:
     return _dt.date.today().isoformat()
@@ -164,6 +188,75 @@ def extract_thesis(final_state: object) -> str | None:
     return text[:MAX_THESIS_LENGTH]
 
 
+def build_analysis_report(final_state: object) -> dict | None:
+    """Structured per-section reports for SignalGuard's proposal detail.
+
+    Untrusted DISPLAY content only — SignalGuard renders it, never parses it for
+    control. Each section is capped; absent sections are omitted. Returns None if
+    nothing is present.
+    """
+    if not isinstance(final_state, dict):
+        return None
+    out: dict[str, str] = {}
+    for key, _label in _REPORT_SECTIONS:
+        v = final_state.get(key)
+        if isinstance(v, str) and v.strip():
+            out[key] = v.strip()[:MAX_SECTION_LENGTH]
+    if not out:
+        return None
+    # Enforce a total serialised budget: trim the largest section until the
+    # whole JSON fits under the server's cap (so the POST is never rejected).
+    while len(json.dumps(out)) > MAX_REPORT_JSON and out:
+        largest = max(out, key=lambda k: len(out[k]))
+        trimmed = out[largest][: max(500, len(out[largest]) - 1000)]
+        if trimmed == out[largest]:  # can't shrink further
+            del out[largest]
+        else:
+            out[largest] = trimmed
+    return out or None
+
+
+def build_reports_blob(report: dict | None) -> str:
+    """Flatten the section dict into one labelled blob for the consensus prompt."""
+    if not report:
+        return ""
+    label_by_key = dict(_REPORT_SECTIONS)
+    parts = [f"## {label_by_key.get(k, k)}\n{v}" for k, v in report.items()]
+    return "\n\n".join(parts)[:18000]
+
+
+def compute_consensus(report: dict | None, symbol: str, date: str) -> dict | None:
+    """Poll the consensus panel; return a JSON-serialisable tally, or None.
+
+    Disabled unless TA_ENABLE_CONSENSUS is set and at least one panel key is
+    present. Never raises to the caller — a panel failure must not sink the run.
+    """
+    if not ENABLE_CONSENSUS:
+        return None
+    try:
+        from consensus import available_panel, get_consensus
+
+        if not available_panel():
+            return None
+        blob = build_reports_blob(report)
+        if not blob:
+            return None
+        res = get_consensus(blob, symbol, date)
+        # Emit the compact, advisory bits only (tally drives the Fuse stage).
+        return {
+            "tally": res["tally"],
+            "decision": res["decision"],
+            "agreement": res["agreement"],
+            "votes": [
+                {"label": v["label"], "vote": v["vote"], "confidence": v["confidence"]}
+                for v in res["votes"] if v["ok"]
+            ],
+        }
+    except Exception as exc:  # noqa: BLE001 — advisory only; never crash the run
+        print(f"[emit] consensus skipped ({exc})", file=sys.stderr)
+        return None
+
+
 def post_candidate(ingest_url: str, ingest_token: str, payload: dict) -> bool:
     """POST one candidate. Returns True on a 2xx. Never raises to the caller."""
     body = json.dumps(payload).encode("utf-8")
@@ -218,17 +311,28 @@ def run() -> int:
             final_state, rating = graph.propagate(symbol, today)
             action = map_rating(rating)
             thesis = extract_thesis(final_state)
+            report = build_analysis_report(final_state)
+            consensus = compute_consensus(report, symbol, today)
 
             payload = {
                 # Idempotency / dedup key — unique per (run-date, symbol). A
                 # re-delivered candidate is deduped by the server.
                 "agentRunId": f"ta-{today}-{symbol}",
                 "symbol": symbol,
+                # In nominator mode `action` IS TA's verdict (drop non-BUY). When
+                # this sidecar is later driven by SignalGuard discovery (D4-B),
+                # `action` becomes the SG BUY intent and `taVerdict` stays as TA's
+                # opinion — so we populate both now for forward-compatibility.
                 "action": action,
+                "taVerdict": action,
                 # No reliable numeric confidence in the rating — advisory only,
                 # left null (the scanner ignores it for sizing regardless).
                 "confidenceHint": None,
                 "thesisText": thesis,
+                # Untrusted DISPLAY content (full analyst reports) + advisory
+                # consensus tally. Omitted (None) when unavailable.
+                "analysisReport": report,
+                "consensusTally": consensus,
                 "asOfDate": today,
             }
 
