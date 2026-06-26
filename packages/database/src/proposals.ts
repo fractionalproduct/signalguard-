@@ -40,6 +40,9 @@ export async function createProposal(
       notes: draft.notes,
       expiresAt: draft.expiresAt,
       source: draft.source ?? "DETERMINISTIC",
+      // Default DRAFT; TA-sourced proposals pass PENDING_APPROVAL so they enter
+      // the decision queue. Every downstream gate still runs regardless.
+      status: draft.status ?? "DRAFT",
       taVerdict: draft.taVerdict ?? null,
       // Json columns: absent -> explicit JSON null (Prisma.JsonNull); a plain
       // `null` is rejected by the generated input types for nullable Json fields.
