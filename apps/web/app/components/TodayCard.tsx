@@ -1,18 +1,19 @@
-import { loadTodayState, type TodayState } from "../../../lib/today";
-import { buildTodayView, type TodayView } from "../../../lib/today-view";
+import { buildTodayView, type TodayView } from "../../lib/today-view";
+import type { TodayState } from "../../lib/today";
 
-/** Today's data + a live broker read; must never be statically prerendered. */
-export const dynamic = "force-dynamic";
-
-export default async function TodayPage() {
-  const state = await loadTodayState();
-  return <TodayContent state={state} />;
-}
-
-function TodayContent({ state }: { state: TodayState }) {
+/**
+ * Presentational "Today's money" card — intraday realized + unrealized P&L,
+ * capital deployed vs cap, and progress bars toward the daily profit target and
+ * the capital cap. Renders one of the three explicit loader states
+ * (ok / not-configured / error).
+ *
+ * Extracted from the former /today page so it can be folded onto the Home
+ * dashboard as a clearly-separated section. Pure props in, no I/O.
+ */
+export function TodayCard({ state }: { state: TodayState }) {
   if (state.status === "error") return <ErrorCard message={state.message} />;
   if (state.status === "not-configured") return <NotConfiguredCard />;
-  return <TodayCard view={buildTodayView(state.view)} />;
+  return <TodayOk view={buildTodayView(state.view)} />;
 }
 
 function NotConfiguredCard() {
@@ -79,7 +80,7 @@ function ProgressBar({ pct, label }: { pct: number; label: string }) {
   );
 }
 
-function TodayCard({ view }: { view: TodayView }) {
+function TodayOk({ view }: { view: TodayView }) {
   return (
     <section className="page-card">
       <p className="eyebrow">Beginner view · PAPER TRADING</p>

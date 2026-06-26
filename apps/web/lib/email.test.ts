@@ -26,7 +26,7 @@ test("text body uses the default base URL when none provided", () => {
     msg.text,
     /https:\/\/signalguard-web\.vercel\.app\/research\/AAPL/,
   );
-  assert.match(msg.text, /https:\/\/signalguard-web\.vercel\.app\/alerts/);
+  assert.match(msg.text, /https:\/\/signalguard-web\.vercel\.app\/activity/);
 });
 
 test("text body uses the custom base URL when provided", () => {

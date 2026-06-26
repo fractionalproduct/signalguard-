@@ -28,13 +28,13 @@ test("text body uses the default notifications URL when none provided", () => {
   const msg = buildBriefingEmail(INPUT);
   assert.match(
     msg.text,
-    /https:\/\/signalguard-web\.vercel\.app\/notifications/,
+    /https:\/\/signalguard-web\.vercel\.app\/activity/,
   );
 });
 
 test("text body uses the custom base URL when provided", () => {
   const msg = buildBriefingEmail(INPUT, { baseUrl: "https://signalguard.example" });
-  assert.match(msg.text, /https:\/\/signalguard\.example\/notifications/);
+  assert.match(msg.text, /https:\/\/signalguard\.example\/activity/);
   assert.equal(msg.text.includes("vercel.app"), false);
 });
 

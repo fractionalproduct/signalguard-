@@ -33,7 +33,7 @@ export function buildAlertEmail(
   const drillDownUrl = `${baseUrl}/research/${encodeURIComponent(
     input.symbol,
   )}`;
-  const alertsUrl = `${baseUrl}/alerts`;
+  const alertsUrl = `${baseUrl}/activity`;
   const subject = `[SignalGuard] ${input.alertLabel} on ${input.symbol}`;
   const isoTimestamp = input.triggeredAt.toISOString();
   const text = [
@@ -86,7 +86,7 @@ export function buildBriefingEmail(
   options: BuildAlertEmailOptions = {},
 ): AlertEmailMessage {
   const baseUrl = options.baseUrl ?? "https://signalguard-web.vercel.app";
-  const notificationsUrl = `${baseUrl}/notifications`;
+  const notificationsUrl = `${baseUrl}/activity`;
   const subject = `[SignalGuard] ${input.title}`;
 
   const textParts: string[] = [input.title, ""];

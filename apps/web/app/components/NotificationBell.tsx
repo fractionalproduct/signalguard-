@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getDb, unreadNotificationCount } from "@signalguard/database";
 
 /**
- * Header bell linking to /notifications, badged with the unread count (M15).
+ * Header bell linking to /activity, badged with the unread count (M15).
  *
  * Fail-soft: the header renders on every authenticated page, so a DB hiccup
  * must never 500 the whole app. On any read error we render the bell with no
@@ -21,7 +21,7 @@ export async function NotificationBell() {
     : "Notifications";
   return (
     <Link
-      href="/notifications"
+      href="/activity"
       className="icon-button"
       aria-label={label}
       title={label}
