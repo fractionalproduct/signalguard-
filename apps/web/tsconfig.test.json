@@ -80,6 +80,12 @@
     "lib/alphavantage-insider.ts",
     "lib/alphavantage-insider.test.ts",
     "lib/ta-automation.ts",
-    "lib/ta-automation.test.ts"
+    "lib/ta-automation.test.ts",
+    "lib/pnl-series.ts",
+    "lib/pnl-series.test.ts",
+    "lib/audit-view.ts",
+    "lib/audit-view.test.ts",
+    "lib/discovery-queue-view.ts",
+    "lib/discovery-queue-view.test.ts"
   ]
 }

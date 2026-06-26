@@ -1,4 +1,5 @@
 import { PortfolioDashboard } from "../../components/PortfolioDashboard";
+import { DiscoveryQueueWidget } from "../../components/DiscoveryQueueWidget";
 import { loadPortfolioState } from "../../../lib/portfolio";
 
 // The dashboard reads live (paper) broker data at request time, so it must never
@@ -7,5 +8,10 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const state = await loadPortfolioState();
-  return <PortfolioDashboard state={state} />;
+  return (
+    <>
+      <PortfolioDashboard state={state} />
+      <DiscoveryQueueWidget />
+    </>
+  );
 }

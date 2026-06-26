@@ -175,8 +175,10 @@ export {
   enqueueTaAnalysis,
   claimPendingAnalysis,
   markAnalysisDone,
+  listTaAnalysisQueue,
   type EnqueueTaAnalysisInput,
   type EnqueueTaAnalysisResult,
   type ClaimedAnalysisItem,
   type MarkAnalysisDoneResult,
+  type TaAnalysisQueueRow,
 } from "./ta-analysis-queue.js";

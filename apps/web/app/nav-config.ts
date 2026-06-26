@@ -119,6 +119,12 @@ export const NAV: NavEntry[] = [
         description:
           "The control panel — autopilot, options, extended-hours, and risk thresholds. Security (password / MFA) lives in a sub-page.",
       },
+      {
+        href: "/audit",
+        label: "Audit",
+        description:
+          "The decision ledger — a read-only record of what the system did (autopilot decisions, discovery cycles, risk events, owner actions), filterable by event type.",
+      },
     ],
   },
   {

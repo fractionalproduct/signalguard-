@@ -1142,3 +1142,33 @@ h2 {
   background: rgba(245, 166, 35, 0.14);
   border-color: rgba(154, 163, 178, 0.18);
 }
+
+/* Phase 7 — hand-rolled P&L equity-curve chart. The svg uses `currentColor`,
+   so the .positive/.negative/.flat tone class on it drives the line + area. */
+.pnl-chart__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 8px;
+}
+.pnl-chart__caption {
+  margin-top: 8px;
+}
+
+/* Phase 7 — audit ledger filter + summary cell. */
+.audit-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+.audit-filter input[type="text"] {
+  flex: 1 1 220px;
+  min-width: 160px;
+}
+.audit-summary {
+  color: var(--muted);
+  max-width: 480px;
+  overflow-wrap: anywhere;
+}

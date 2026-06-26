@@ -99,6 +99,42 @@ export function claimPendingAnalysis(
   });
 }
 
+/** A queue row for the discovery-queue widget (read-only display). */
+export interface TaAnalysisQueueRow {
+  id: string;
+  symbol: string;
+  action: string;
+  discoveryReason: string | null;
+  status: string;
+  createdAt: Date;
+}
+
+/**
+ * List TaAnalysisQueue rows newest-first for the discovery-queue widget, with an
+ * optional status filter ("PENDING" | "CLAIMED" | "DONE") and a capped limit.
+ * Pure read; no mutation. The cap mirrors the other list helpers (1..200) so a
+ * caller can't pull the whole table by accident.
+ */
+export function listTaAnalysisQueue(
+  db: PrismaClient,
+  options: { status?: string; limit?: number } = {},
+): Promise<TaAnalysisQueueRow[]> {
+  const take = Math.min(Math.max(options.limit ?? 50, 1), 200);
+  return db.taAnalysisQueue.findMany({
+    where: options.status ? { status: options.status } : undefined,
+    orderBy: { createdAt: "desc" },
+    take,
+    select: {
+      id: true,
+      symbol: true,
+      action: true,
+      discoveryReason: true,
+      status: true,
+      createdAt: true,
+    },
+  });
+}
+
 export type MarkAnalysisDoneResult =
   | { ok: true }
   | { ok: false; reason: "not_found" };

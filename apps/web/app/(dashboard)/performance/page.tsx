@@ -1,16 +1,20 @@
 import { PerformanceDashboard } from "../../components/PerformanceDashboard";
+import { PnlChart } from "../../components/PnlChart";
 import { loadPerformanceState } from "../../../lib/performance";
 import { loadBenchmarkComparison, type BenchmarkState } from "../../../lib/benchmark";
+import { loadPnlSeries } from "../../../lib/pnl-series-loader";
 
 export const dynamic = "force-dynamic";
 
 export default async function PerformancePage() {
-  const [state, benchmark] = await Promise.all([
+  const [state, benchmark, pnlSeries] = await Promise.all([
     loadPerformanceState(),
     loadBenchmarkComparison(),
+    loadPnlSeries(),
   ]);
   return (
     <>
+      <PnlChart series={pnlSeries} />
       <PerformanceDashboard state={state} />
       <BenchmarkPanel benchmark={benchmark} />
     </>

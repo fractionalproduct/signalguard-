@@ -27,6 +27,10 @@ export async function AutopilotSettings() {
   const armed = config.enabled && !config.shadowMode;
   const centsToDollars = (cents: number | null): string =>
     cents === null ? "" : String(cents / 100);
+  // Discovery deep-dive budget is env-driven (per discovery run), not a config
+  // field — surfaced read-only so the owner can see the current value. Mirrors
+  // the default in apps/web/app/api/cron/discovery/route.ts.
+  const discoveryMaxPerTick = Number(process.env.DISCOVERY_MAX_PER_TICK ?? 10);
 
   return (
     <section className="page-card" aria-labelledby="autopilot-heading">
@@ -134,6 +138,25 @@ export async function AutopilotSettings() {
             }
             placeholder="No limit"
           />
+        </div>
+
+        <div className="autopilot-field">
+          <label htmlFor="ap-discovery-budget">
+            Discovery deep-dive budget (symbols per run)
+          </label>
+          <input
+            id="ap-discovery-budget"
+            type="number"
+            value={discoveryMaxPerTick}
+            readOnly
+            disabled
+            aria-describedby="ap-discovery-budget-note"
+          />
+          <p id="ap-discovery-budget-note" className="muted">
+            Max symbols the discovery cron deep-dives each run. Env-driven
+            (<code>DISCOVERY_MAX_PER_TICK</code>, default 10) — set it in the
+            deployment environment, not here.
+          </p>
         </div>
 
         <div className="autopilot-field">
