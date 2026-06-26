@@ -43,17 +43,77 @@ ALLOWED_PROVIDERS = {"openai", "anthropic", "google", "xai", "ollama"}
 # not stall the whole watchlist run.
 INGEST_TIMEOUT_SECONDS = 20
 
+# How many work items to claim per pull in queue mode (server caps this at 50).
+QUEUE_PULL_LIMIT = int(os.environ.get("TA_QUEUE_LIMIT", "10"))
+
 # Length cap mirrored from the SignalGuard endpoint so we don't waste a round
 # trip on a thesis the server will reject as oversized.
 MAX_THESIS_LENGTH = 4000
+
+# Caps for the full analyst reports. The server rejects an analysisReport whose
+# serialised JSON exceeds 60000 chars, so we cap per-section AND enforce a total
+# serialised budget below that (JSON escaping of newlines inflates size).
+MAX_SECTION_LENGTH = 6000
+MAX_REPORT_JSON = 55000
+
+# Whether to poll the multi-LLM consensus panel. Off by default: the panel needs
+# several provider keys + egress to several LLM hosts (widens the sidecar's
+# secret/egress surface — see the owner checklist). Set TA_ENABLE_CONSENSUS=1
+# once those keys/allowlist are in place.
+ENABLE_CONSENSUS = os.environ.get("TA_ENABLE_CONSENSUS", "").strip() in ("1", "true", "yes")
+
+# Reports surfaced to SignalGuard's proposal detail (untrusted display content),
+# in display order. Mirrors the Streamlit tool's REPORT_DISPLAY.
+_REPORT_SECTIONS = [
+    ("market_report", "Market / Technical"),
+    ("sentiment_report", "Sentiment / Social"),
+    ("news_report", "News & Macro"),
+    ("fundamentals_report", "Fundamentals"),
+    ("investment_plan", "Research Manager (Bull vs Bear)"),
+    ("trader_investment_plan", "Trader Plan"),
+    ("final_trade_decision", "Portfolio Manager Decision"),
+]
 
 
 def _today_iso() -> str:
     return _dt.date.today().isoformat()
 
 
+def _derive_queue_url(ingest_url: str) -> str:
+    """Build the analysis-queue pull URL from configured bases.
+
+    Prefer an explicit SIGNALGUARD_INGEST_BASE (scheme+host, no path); otherwise
+    derive it by stripping the path off SIGNALGUARD_INGEST_URL (which points at
+    /api/ta/candidates). The pull endpoint is /api/ta/analysis-queue on the same
+    SignalGuard host — the ONLY new surface the sidecar reads from. No new creds:
+    the same bearer token gates both.
+    """
+    base = os.environ.get("SIGNALGUARD_INGEST_BASE", "").strip().rstrip("/")
+    if not base:
+        # Strip path: keep scheme://host[:port] from the candidates ingest URL.
+        from urllib.parse import urlsplit, urlunsplit
+
+        parts = urlsplit(ingest_url)
+        base = urlunsplit((parts.scheme, parts.netloc, "", "", ""))
+    return f"{base}/api/ta/analysis-queue"
+
+
 def read_config() -> dict:
-    """Read + validate env. Fail loud on missing required config."""
+    """Read + validate env. Fail loud on missing required config.
+
+    TA_SOURCE selects the work source:
+      - "watchlist" (default): nominate from the static WATCHLIST_SYMBOLS list
+        (current behavior — `action` IS TradingAgents' verdict).
+      - "queue": PULL discovery-driven work items from SignalGuard's
+        /api/ta/analysis-queue (D4-B — `action` is SG's intent, `taVerdict` is
+        TradingAgents' opinion; they may differ).
+    """
+    source = os.environ.get("TA_SOURCE", "watchlist").strip().lower()
+    if source not in ("watchlist", "queue"):
+        raise SystemExit(
+            f"TA_SOURCE={source!r} invalid — expected 'watchlist' or 'queue'."
+        )
+
     symbols_raw = os.environ.get("WATCHLIST_SYMBOLS", "")
     symbols = [s.strip().upper() for s in symbols_raw.split(",") if s.strip()]
 
@@ -61,7 +121,9 @@ def read_config() -> dict:
     ingest_token = os.environ.get("SIGNALGUARD_INGEST_TOKEN", "").strip()
     provider = os.environ.get("TA_LLM_PROVIDER", "openai").strip().lower()
 
-    if not symbols:
+    # WATCHLIST_SYMBOLS is only required in watchlist mode; queue mode gets its
+    # symbols from the pull endpoint at runtime.
+    if source == "watchlist" and not symbols:
         raise SystemExit("WATCHLIST_SYMBOLS is empty — nothing to nominate.")
     if not ingest_url:
         raise SystemExit("SIGNALGUARD_INGEST_URL is not set.")
@@ -75,11 +137,66 @@ def read_config() -> dict:
         )
 
     return {
+        "source": source,
         "symbols": symbols,
         "ingest_url": ingest_url,
         "ingest_token": ingest_token,
+        "queue_url": _derive_queue_url(ingest_url),
         "provider": provider,
     }
+
+
+def fetch_queue_items(queue_url: str, ingest_token: str, limit: int) -> list[dict]:
+    """Claim up to `limit` work items from SignalGuard's analysis queue.
+
+    GET the token-gated endpoint; it atomically claims PENDING items and returns
+    {ok, items:[{id, symbol, action, discoveryReason}]}. Each item carries SG's
+    DISCOVERY INTENT in `action` (not the LLM verdict). Returns a sanitized list
+    of dicts; never raises to the caller — a queue failure yields [] so the run
+    ends cleanly instead of crashing.
+    """
+    url = f"{queue_url}?limit={int(limit)}"
+    req = urllib.request.Request(
+        url,
+        method="GET",
+        headers={"Authorization": f"Bearer {ingest_token}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=INGEST_TIMEOUT_SECONDS) as resp:
+            if not (200 <= resp.status < 300):
+                print(f"[emit] queue pull returned HTTP {resp.status}", file=sys.stderr)
+                return []
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        print(f"[emit] queue pull HTTPError {exc.code}: {exc.reason}", file=sys.stderr)
+        return []
+    except urllib.error.URLError as exc:
+        print(f"[emit] queue pull URLError: {exc.reason}", file=sys.stderr)
+        return []
+    except Exception as exc:  # noqa: BLE001 — never crash the run on a bad pull
+        print(f"[emit] queue pull unexpected error: {exc}", file=sys.stderr)
+        return []
+
+    if not isinstance(data, dict) or not isinstance(data.get("items"), list):
+        print("[emit] queue pull: unexpected response shape", file=sys.stderr)
+        return []
+
+    items: list[dict] = []
+    for raw in data["items"]:
+        # Defensive: ignore malformed items rather than trust the response blindly.
+        if not isinstance(raw, dict):
+            continue
+        symbol = raw.get("symbol")
+        item_id = raw.get("id")
+        if not isinstance(symbol, str) or not symbol.strip():
+            continue
+        if not isinstance(item_id, str) or not item_id.strip():
+            continue
+        action = raw.get("action")
+        if not isinstance(action, str) or action not in ("BUY", "SELL", "HOLD"):
+            action = "BUY"  # default SG intent if missing/odd
+        items.append({"id": item_id, "symbol": symbol.strip().upper(), "action": action})
+    return items
 
 
 def build_graph(provider: str):
@@ -118,6 +235,14 @@ def build_graph(provider: str):
         config["quick_think_llm"] = quick
     if backend:  # required for ollama / a self-hosted OpenAI-compatible endpoint
         config["backend_url"] = backend
+    # News vendor: use the "aggregate" vendor (our fork) so the news analyst sees
+    # ALL available providers in one call — Finnhub/EODHD/Marketaux/GDELT (+ the
+    # keyed ones present) plus AlphaVantage/yfinance. tool_vendors is per-method
+    # and takes precedence over data_vendors; empty by default, so this clobbers
+    # nothing. Override with TA_NEWS_VENDOR (e.g. "finnhub,marketaux,gdelt,yfinance"
+    # for an ordered fallback chain instead of fan-out concat).
+    news_vendor = os.environ.get("TA_NEWS_VENDOR", "aggregate").strip()
+    config["tool_vendors"] = {"get_news": news_vendor, "get_global_news": news_vendor}
     return TradingAgentsGraph(config=config)
 
 
@@ -164,6 +289,75 @@ def extract_thesis(final_state: object) -> str | None:
     return text[:MAX_THESIS_LENGTH]
 
 
+def build_analysis_report(final_state: object) -> dict | None:
+    """Structured per-section reports for SignalGuard's proposal detail.
+
+    Untrusted DISPLAY content only — SignalGuard renders it, never parses it for
+    control. Each section is capped; absent sections are omitted. Returns None if
+    nothing is present.
+    """
+    if not isinstance(final_state, dict):
+        return None
+    out: dict[str, str] = {}
+    for key, _label in _REPORT_SECTIONS:
+        v = final_state.get(key)
+        if isinstance(v, str) and v.strip():
+            out[key] = v.strip()[:MAX_SECTION_LENGTH]
+    if not out:
+        return None
+    # Enforce a total serialised budget: trim the largest section until the
+    # whole JSON fits under the server's cap (so the POST is never rejected).
+    while len(json.dumps(out)) > MAX_REPORT_JSON and out:
+        largest = max(out, key=lambda k: len(out[k]))
+        trimmed = out[largest][: max(500, len(out[largest]) - 1000)]
+        if trimmed == out[largest]:  # can't shrink further
+            del out[largest]
+        else:
+            out[largest] = trimmed
+    return out or None
+
+
+def build_reports_blob(report: dict | None) -> str:
+    """Flatten the section dict into one labelled blob for the consensus prompt."""
+    if not report:
+        return ""
+    label_by_key = dict(_REPORT_SECTIONS)
+    parts = [f"## {label_by_key.get(k, k)}\n{v}" for k, v in report.items()]
+    return "\n\n".join(parts)[:18000]
+
+
+def compute_consensus(report: dict | None, symbol: str, date: str) -> dict | None:
+    """Poll the consensus panel; return a JSON-serialisable tally, or None.
+
+    Disabled unless TA_ENABLE_CONSENSUS is set and at least one panel key is
+    present. Never raises to the caller — a panel failure must not sink the run.
+    """
+    if not ENABLE_CONSENSUS:
+        return None
+    try:
+        from consensus import available_panel, get_consensus
+
+        if not available_panel():
+            return None
+        blob = build_reports_blob(report)
+        if not blob:
+            return None
+        res = get_consensus(blob, symbol, date)
+        # Emit the compact, advisory bits only (tally drives the Fuse stage).
+        return {
+            "tally": res["tally"],
+            "decision": res["decision"],
+            "agreement": res["agreement"],
+            "votes": [
+                {"label": v["label"], "vote": v["vote"], "confidence": v["confidence"]}
+                for v in res["votes"] if v["ok"]
+            ],
+        }
+    except Exception as exc:  # noqa: BLE001 — advisory only; never crash the run
+        print(f"[emit] consensus skipped ({exc})", file=sys.stderr)
+        return None
+
+
 def post_candidate(ingest_url: str, ingest_token: str, payload: dict) -> bool:
     """POST one candidate. Returns True on a 2xx. Never raises to the caller."""
     body = json.dumps(payload).encode("utf-8")
@@ -195,9 +389,46 @@ def post_candidate(ingest_url: str, ingest_token: str, payload: dict) -> bool:
         return False
 
 
+def build_work_items(config: dict, today: str) -> list[dict]:
+    """Resolve the run's work items from the configured source.
+
+    Each work item is {symbol, sg_action, agent_run_id}:
+      - watchlist mode: one item per WATCHLIST_SYMBOLS entry. `sg_action` is None
+        — there is no SG intent, so the candidate's `action` IS TA's verdict (the
+        original nominator semantics, unchanged). agent_run_id = ta-{date}-{sym}.
+      - queue mode: one item per claimed queue row. `sg_action` is SG's discovery
+        intent (drives the candidate's `action`, never overwritten by the LLM).
+        agent_run_id = ta-q-{queue-id} so it can't collide with a same-day
+        watchlist run for the same symbol.
+    """
+    if config["source"] == "queue":
+        claimed = fetch_queue_items(
+            config["queue_url"], config["ingest_token"], QUEUE_PULL_LIMIT
+        )
+        return [
+            {
+                "symbol": it["symbol"],
+                "sg_action": it["action"],
+                "agent_run_id": f"ta-q-{it['id']}",
+            }
+            for it in claimed
+        ]
+    # watchlist mode (default, unchanged semantics).
+    return [
+        {"symbol": symbol, "sg_action": None, "agent_run_id": f"ta-{today}-{symbol}"}
+        for symbol in config["symbols"]
+    ]
+
+
 def run() -> int:
     config = read_config()
     today = _today_iso()
+
+    work_items = build_work_items(config, today)
+    if not work_items:
+        # Empty queue (or empty pull) is a clean no-op, not a failure.
+        print(f"[emit] no work items (source={config['source']}); nothing to do.")
+        return 0
 
     # Build the graph once. If TradingAgents itself can't be constructed (missing
     # install / bad provider config), fail the whole run loud — there is nothing
@@ -210,31 +441,48 @@ def run() -> int:
 
     posted = 0
     failed = 0
-    for symbol in config["symbols"]:
+    for item in work_items:
+        symbol = item["symbol"]
         # Per-symbol isolation: one symbol's failure NEVER aborts the run.
         try:
             # Validated: propagate(company_name, trade_date="YYYY-MM-DD",
             # asset_type="stock") -> (final_state, processed_signal_rating).
             final_state, rating = graph.propagate(symbol, today)
-            action = map_rating(rating)
+            ta_verdict = map_rating(rating)
             thesis = extract_thesis(final_state)
+            report = build_analysis_report(final_state)
+            consensus = compute_consensus(report, symbol, today)
+
+            # D4-B core semantic:
+            #  - queue mode: `action` is SignalGuard's discovery intent (from the
+            #    queue item), NEVER the LLM verdict. `taVerdict` carries TA's own
+            #    opinion — they MAY differ (BUY vs SELL) and that conflict is kept.
+            #  - watchlist mode: no SG intent, so `action` IS TA's verdict (the
+            #    original nominator behavior, drop non-BUY downstream).
+            sg_action = item["sg_action"]
+            action = sg_action if sg_action is not None else ta_verdict
 
             payload = {
-                # Idempotency / dedup key — unique per (run-date, symbol). A
-                # re-delivered candidate is deduped by the server.
-                "agentRunId": f"ta-{today}-{symbol}",
+                # Idempotency / dedup key. In queue mode this is ta-q-{queue-id}
+                # so a queued symbol can't collide with a same-day watchlist run.
+                "agentRunId": item["agent_run_id"],
                 "symbol": symbol,
                 "action": action,
+                "taVerdict": ta_verdict,
                 # No reliable numeric confidence in the rating — advisory only,
                 # left null (the scanner ignores it for sizing regardless).
                 "confidenceHint": None,
                 "thesisText": thesis,
+                # Untrusted DISPLAY content (full analyst reports) + advisory
+                # consensus tally. Omitted (None) when unavailable.
+                "analysisReport": report,
+                "consensusTally": consensus,
                 "asOfDate": today,
             }
 
             if post_candidate(config["ingest_url"], config["ingest_token"], payload):
                 posted += 1
-                print(f"[emit] {symbol}: {rating!r} -> {action} -> posted")
+                print(f"[emit] {symbol}: action={action} taVerdict={ta_verdict} -> posted")
             else:
                 failed += 1
         except Exception as exc:  # noqa: BLE001 — isolate, continue with next
@@ -242,10 +490,10 @@ def run() -> int:
             print(f"[emit] {symbol}: FAILED ({exc})", file=sys.stderr)
 
     print(f"[emit] done: {posted} posted, {failed} failed, "
-          f"{len(config['symbols'])} symbols")
-    # Non-zero exit only if EVERY symbol failed (signals a systemic problem to
-    # the scheduler); partial failure is expected and tolerated.
-    return 0 if posted > 0 or not config["symbols"] else 1
+          f"{len(work_items)} items (source={config['source']})")
+    # Non-zero exit only if EVERY item failed (signals a systemic problem to the
+    # scheduler); partial failure is expected and tolerated.
+    return 0 if posted > 0 or not work_items else 1
 
 
 if __name__ == "__main__":

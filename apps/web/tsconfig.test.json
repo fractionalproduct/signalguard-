@@ -63,6 +63,10 @@
     "lib/options-view.test.ts",
     "lib/ta-ingest.ts",
     "lib/ta-ingest.test.ts",
+    "lib/fuse.ts",
+    "lib/fuse.test.ts",
+    "lib/ta-analysis-queue.ts",
+    "lib/ta-analysis-queue.test.ts",
     "lib/option-sync.ts",
     "lib/option-sync.test.ts",
     "lib/option-risk.ts",
@@ -74,6 +78,14 @@
     "lib/option-select.ts",
     "lib/option-select.test.ts",
     "lib/alphavantage-insider.ts",
-    "lib/alphavantage-insider.test.ts"
+    "lib/alphavantage-insider.test.ts",
+    "lib/ta-automation.ts",
+    "lib/ta-automation.test.ts",
+    "lib/pnl-series.ts",
+    "lib/pnl-series.test.ts",
+    "lib/audit-view.ts",
+    "lib/audit-view.test.ts",
+    "lib/discovery-queue-view.ts",
+    "lib/discovery-queue-view.test.ts"
   ]
 }

@@ -14,11 +14,14 @@
 #       query1.finance.yahoo.com / query2.finance.yahoo.com (Yahoo),
 #       www.alphavantage.co (AlphaVantage), api.stlouisfed.org (FRED),
 #       oauth.reddit.com / www.reddit.com (Reddit), api.stocktwits.com (StockTwits)
+#       finnhub.io (Finnhub), eodhd.com (EODHD), api.marketaux.com (Marketaux),
+#       api.gdeltproject.org (GDELT, keyless) — the aggregate news vendor
+#   - api.deepseek.com — DeepSeek, CONSENSUS PANEL ONLY (added in Phase 2; owner
+#       exception per PRD invariant #7). NOT used by the v1 backbone provider.
 #   - the SignalGuard ingest host (your Vercel domain) for the candidate POST
 #   - files.pythonhosted.org + pypi.org (build/deps only; can be denied at runtime)
 # BLOCK (must be unreachable) — Chinese LLM + phone-home:
 #       *.aliyuncs.com  (Qwen/Alibaba)
-#       api.deepseek.com  (DeepSeek)
 #       api.z.ai  /  open.bigmodel.cn  (GLM/Zhipu)
 #       api.minimax*.com  (MiniMax)
 #       api.moonshot.ai  (Kimi/Moonshot, Beijing)

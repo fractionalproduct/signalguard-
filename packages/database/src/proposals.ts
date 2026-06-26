@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import type {
   AuditEvent,
   PrismaClient,
@@ -39,6 +40,18 @@ export async function createProposal(
       notes: draft.notes,
       expiresAt: draft.expiresAt,
       source: draft.source ?? "DETERMINISTIC",
+      taVerdict: draft.taVerdict ?? null,
+      // Json columns: absent -> explicit JSON null (Prisma.JsonNull); a plain
+      // `null` is rejected by the generated input types for nullable Json fields.
+      consensusTally:
+        (draft.consensusTally as Prisma.InputJsonValue | undefined) ??
+        Prisma.JsonNull,
+      analysisReport:
+        (draft.analysisReport as Prisma.InputJsonValue | undefined) ??
+        Prisma.JsonNull,
+      fuseVerdict:
+        (draft.fuseVerdict as Prisma.InputJsonValue | undefined) ??
+        Prisma.JsonNull,
     },
     select: { id: true },
   });

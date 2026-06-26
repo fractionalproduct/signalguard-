@@ -19,7 +19,7 @@
     "build": "prisma generate && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"(lint configured in Milestone 2)\"",
-    "test": "pnpm run build && node --test dist/snapshots.test.js dist/manipulation-alerts.test.js"
+    "test": "pnpm run build && node --test dist/snapshots.test.js dist/manipulation-alerts.test.js dist/ta-analysis-queue.test.js"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

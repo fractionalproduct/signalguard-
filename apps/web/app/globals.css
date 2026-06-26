@@ -822,6 +822,52 @@ h2 {
   border-bottom: 1px solid rgba(154, 163, 178, 0.15);
   font-size: 13px;
 }
+/* TradingAgents analysis panel (TA Phase 3). */
+.ta-analysis { margin: 8px 0 0; }
+.ta-consensus {
+  border: 1px solid rgba(154, 163, 178, 0.16);
+  border-radius: 18px;
+  background: rgba(11, 16, 32, 0.4);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+.ta-consensus-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 16px;
+}
+.ta-votes { list-style: none; padding: 0; margin: 12px 0 0; }
+.ta-votes li {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(154, 163, 178, 0.12);
+  font-size: 13px;
+}
+.ta-sections { display: flex; flex-direction: column; gap: 8px; }
+.ta-section {
+  border: 1px solid rgba(154, 163, 178, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 4px 16px;
+}
+.ta-section summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 8px 0;
+  list-style-position: inside;
+}
+.ta-report-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  margin: 4px 0 12px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #cfd5e3;
+}
+
 .notes-form { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; max-width: 520px; }
 .notes-form textarea {
   width: 100%;
@@ -1095,4 +1141,34 @@ h2 {
   opacity: 1;
   background: rgba(245, 166, 35, 0.14);
   border-color: rgba(154, 163, 178, 0.18);
+}
+
+/* Phase 7 — hand-rolled P&L equity-curve chart. The svg uses `currentColor`,
+   so the .positive/.negative/.flat tone class on it drives the line + area. */
+.pnl-chart__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 8px;
+}
+.pnl-chart__caption {
+  margin-top: 8px;
+}
+
+/* Phase 7 — audit ledger filter + summary cell. */
+.audit-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+.audit-filter input[type="text"] {
+  flex: 1 1 220px;
+  min-width: 160px;
+}
+.audit-summary {
+  color: var(--muted);
+  max-width: 480px;
+  overflow-wrap: anywhere;
 }

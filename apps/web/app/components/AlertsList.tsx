@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { AlertsState } from "../../lib/alerts";
 import type { AlertRow } from "../../lib/alerts-view";
-import { acknowledgeAlertAction } from "../(dashboard)/alerts/actions";
+import { acknowledgeAlertAction } from "../(dashboard)/activity/actions";
 
 /**
  * Read-only list of recent manipulation alerts. Each row links to the

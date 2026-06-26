@@ -147,6 +147,11 @@ model AutopilotConfig {
   /// eligible only briefly. Configurable.
   maxSignalAgeSeconds Int @default(3600)
 
+  /// MANUAL = every proposal needs owner approval; AUTOMATIC = TA-sourced
+  /// proposals may auto-approve when not escalated. Only meaningful when
+  /// autopilot is armed.
+  tradingMode String @default("MANUAL")
+
   updatedBy String?
   updatedAt DateTime @updatedAt
 }
@@ -294,6 +299,46 @@ model TaCandidate {
   status String @default("NEW")
   /// Why dropped (off_watchlist / not_buy / scan_failed), for audit.
   dropReason String?
+  /// TradingAgents' OWN BUY/SELL/HOLD opinion — DISTINCT from `action` (the
+  /// originating intent). Display/conflict metadata only; NEVER gates the drop
+  /// decision (a BUY with taVerdict "SELL" is still ingested as conflict data).
+  taVerdict String?
+  /// The multi-LLM vote tally behind the verdict. Display/metadata only.
+  consensusTally Json?
+  /// The full analyst reports (market/sentiment/news/fundamentals/bull-bear/
+  /// trader plan). Display/metadata only; never parsed for control.
+  analysisReport Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+}
+
+/// The TradingAgents analysis work queue (D4-B, discovery-driven mode). When the
+/// sidecar runs in `queue` mode it PULLS items from here (via GET
+/// /api/ta/analysis-queue) instead of nominating from a static watchlist. The
+/// row carries SignalGuard's DISCOVERY INTENT for a symbol — `action` is what SG
+/// wants TradingAgents to evaluate (default "BUY"), NOT TradingAgents' own
+/// opinion. TradingAgents' opinion comes back later as TaCandidate.taVerdict and
+/// MAY differ (action=BUY, taVerdict=SELL is a kept conflict, never a drop).
+///
+/// The sidecar has NO DB creds — it only ever reads the claimed items through the
+/// token-gated HTTP endpoint. Producers (SG discovery / a manual seed / a
+/// watchlist-seed cron) write here via enqueueTaAnalysis. Status is a plain
+/// string ("PENDING" | "CLAIMED" | "DONE"), not a Prisma enum, so new states stay
+/// migration-free. No @@unique on (symbol,status) — that is too strict across DONE
+/// rows; PENDING dedupe is enforced in enqueueTaAnalysis instead.
+model TaAnalysisQueue {
+  id String @id @default(cuid())
+  symbol String
+  /// SignalGuard's discovery intent for this symbol — "BUY" by default. This is
+  /// NOT the LLM verdict; it is never overwritten by TradingAgents' opinion.
+  action String @default("BUY")
+  /// Why SG queued this symbol (e.g. "MOVERS", "manual-seed"), for audit. Free
+  /// text from a trusted producer; display/metadata only.
+  discoveryReason String?
+  /// "PENDING" (awaiting pull) | "CLAIMED" (handed to the sidecar) | "DONE".
+  status String @default("PENDING")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -580,6 +625,22 @@ model TradeProposal {
   /// once by a background cron. Null = not yet generated / unavailable. Display
   /// only — never gates anything.
   aiSummary         String?
+  /// TradingAgents' OWN BUY/SELL/HOLD opinion carried from the candidate —
+  /// DISTINCT from the originating intent. Display/conflict metadata only;
+  /// NEVER affects the gate, sizing, or risk engine.
+  taVerdict         String?
+  /// The multi-LLM vote tally carried from the candidate. Display only.
+  consensusTally    Json?
+  /// The full analyst reports carried from the candidate. Display only.
+  analysisReport    Json?
+  /// Phase 5 "Fuse" advisory label: a SUBTRACTIVE reconciliation of the
+  /// SignalGuard BUY intent vs TradingAgents' verdict vs the multi-LLM
+  /// consensus, shaped { tier: "aligned"|"flag"|"escalate"; note: string }.
+  /// Display/advisory ONLY — it NEVER gates anything: it cannot change
+  /// entry/stop/target/sizing/probability/confidence, cannot change status or
+  /// promote the proposal, and cannot cause execution. It can only annotate or
+  /// downgrade/escalate, never upgrade. Null = nothing to fuse.
+  fuseVerdict       Json?
   expiresAt         DateTime?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt

@@ -37,16 +37,9 @@ export const NAV: NavEntry[] = [
   },
   {
     label: "Trading",
-    href: "/trading",
     description:
-      "Your trading workflow in one place — proposals awaiting action, open positions with their stops and targets, and recent orders.",
+      "Your trading workflow — candidate trades awaiting action, manual options, and your long-run scorecard.",
     items: [
-      {
-        href: "/signals",
-        label: "Signals",
-        description:
-          "An inbox of structured trade signals the system distilled from the sources it monitors.",
-      },
       {
         href: "/proposals",
         label: "Proposals",
@@ -60,12 +53,6 @@ export const NAV: NavEntry[] = [
           "Manual options trading — your open option positions, a buy form, and your total premium at risk (your max loss).",
       },
       {
-        href: "/today",
-        label: "Today",
-        description:
-          "Today's money view — realized P/L from positions closed today, unrealized mark-to-market on open ones, capital deployed versus your cap, and progress toward the daily profit target.",
-      },
-      {
         href: "/performance",
         label: "Performance",
         description:
@@ -74,10 +61,16 @@ export const NAV: NavEntry[] = [
     ],
   },
   {
-    label: "Intel Gathering",
+    label: "Intel",
     description:
-      "Where the system's trade ideas come from — market sources, congressional disclosures, and the alerts they raise.",
+      "Where the system's trade ideas come from — distilled signals, market sources, and congressional disclosures.",
     items: [
+      {
+        href: "/signals",
+        label: "Signals",
+        description:
+          "An inbox of structured trade signals the system distilled from the sources it monitors.",
+      },
       {
         href: "/research",
         label: "Research",
@@ -88,12 +81,6 @@ export const NAV: NavEntry[] = [
         href: "/congress",
         label: "Congress",
         description: "An inbox of congressional trading disclosures.",
-      },
-      {
-        href: "/alerts",
-        label: "Alerts",
-        description:
-          "Alerts tied to watched symbols, each linking through to that symbol's research.",
       },
       {
         href: "/sources",
@@ -108,16 +95,22 @@ export const NAV: NavEntry[] = [
     description: "Your notifications and the app's control panel.",
     items: [
       {
-        href: "/notifications",
-        label: "Notifications",
+        href: "/activity",
+        label: "Activity",
         description:
-          "Your in-app feed — order events, critical warnings, and the evening briefing, with an unread count.",
+          "Everything that needs your eyes — watchlist alerts (with acknowledge actions) plus your in-app feed of order events, critical warnings, and the evening briefing.",
       },
       {
         href: "/settings",
         label: "Settings",
         description:
           "The control panel — autopilot, options, extended-hours, and risk thresholds. Security (password / MFA) lives in a sub-page.",
+      },
+      {
+        href: "/audit",
+        label: "Audit",
+        description:
+          "The decision ledger — a read-only record of what the system did (autopilot decisions, discovery cycles, risk events, owner actions), filterable by event type.",
       },
     ],
   },

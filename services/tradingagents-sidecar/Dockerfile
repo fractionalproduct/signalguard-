@@ -38,8 +38,15 @@ RUN pip install --require-hashes --no-deps -r requirements.txt
 # hash-enforced dependency set is authoritative. Pin TA_REF to the SHA you
 # audited (the supply-chain review looked at c15200d, v0.2.5). git is needed only
 # at build time.
-ARG TA_REPO=https://github.com/TauricResearch/TradingAgents.git
-ARG TA_REF=c15200d
+# Our FORK carries the consensus panel + extra news vendors (Finnhub / EODHD /
+# Marketaux / GDELT / aggregate). PREREQUISITES before a production build:
+#   (1) the fork is PRIVATE — the build host must be able to clone it (a build-time
+#       git token / deploy key, or make the fork public);
+#   (2) merge feat/news-connectors -> main and pin TA_REF to that audited SHA;
+#   (3) re-run pip-audit/osv-scanner on the fork's dep tree (H1) before live use.
+# Upstream fallback (audited @ v0.2.5): TauricResearch/TradingAgents @ c15200d.
+ARG TA_REPO=https://github.com/fractionalproduct/TradingAgents.git
+ARG TA_REF=3378f76
 USER root
 RUN set -eux; \
     apt-get update && apt-get install -y --no-install-recommends git; \
@@ -50,7 +57,7 @@ RUN set -eux; \
     apt-get purge -y git && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 # ---- Application code --------------------------------------------------------
-COPY emit_candidates.py ./
+COPY emit_candidates.py consensus.py ./
 
 # ---- Non-root runtime user (control 4) --------------------------------------
 # Create a dedicated unprivileged user and a home for TradingAgents' cache

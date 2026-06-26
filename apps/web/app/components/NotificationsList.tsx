@@ -3,7 +3,7 @@ import type { NotificationRow } from "../../lib/notifications-view";
 import {
   acknowledgeAllNotificationsAction,
   acknowledgeNotificationAction,
-} from "../(dashboard)/notifications/actions";
+} from "../(dashboard)/activity/actions";
 
 /**
  * Read-only list of recent in-app notifications (M15). Each unread row offers

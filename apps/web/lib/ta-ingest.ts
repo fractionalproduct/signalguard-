@@ -11,7 +11,11 @@
  * symbol casing is recovered by the caller from the watchlist, not here.
  */
 export function classifyCandidate(
-  candidate: { symbol: string; action: string },
+  // `taVerdict` is accepted but DELIBERATELY UNUSED here: it is TradingAgents'
+  // own opinion (conflict metadata for a later "Fuse" stage), NOT a drop gate.
+  // A BUY with taVerdict "SELL" still classifies INGEST. The drop decision is
+  // action + watchlist ONLY.
+  candidate: { symbol: string; action: string; taVerdict?: string | null },
   watchlist: ReadonlyArray<string>,
 ): { decision: "INGEST" | "DROP"; reason?: "not_buy" | "off_watchlist" } {
   if (candidate.action !== "BUY") {

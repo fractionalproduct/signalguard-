@@ -6,6 +6,7 @@ import {
 } from "@signalguard/database";
 import type { MarketDataReadClient } from "@signalguard/market-data";
 import { generateProposalForSymbol } from "@signalguard/proposals";
+import { computeFuseVerdict, type FuseInput } from "./fuse";
 
 /**
  * Shared proposal-generation core, extracted from `generateProposalsAction` so
@@ -29,7 +30,16 @@ export async function generateAndPersistProposal(
   db: PrismaClient,
   marketData: MarketDataReadClient,
   symbol: string,
-  opts: { source?: string; notes?: string | null; riskProfile?: string } = {},
+  opts: {
+    source?: string;
+    notes?: string | null;
+    riskProfile?: string;
+    // TradingAgents carry-through metadata. Display/conflict only — these never
+    // touch the scanner, gate, sizing, or risk engine.
+    taVerdict?: string | null;
+    consensusTally?: unknown;
+    analysisReport?: unknown;
+  } = {},
 ): Promise<{ created: boolean }> {
   const end = new Date();
   // ~1y of daily bars = comfortable buffer for the 20-bar horizon scan.
@@ -60,6 +70,19 @@ export async function generateAndPersistProposal(
 
   draft.source = opts.source;
   draft.notes = opts.notes ?? draft.notes;
+  draft.taVerdict = opts.taVerdict;
+  draft.consensusTally = opts.consensusTally;
+  draft.analysisReport = opts.analysisReport;
+  // Phase 5 — Fuse stage: a SUBTRACTIVE advisory label computed ONLY when a TA
+  // verdict or consensus is present. It annotates the draft and NOTHING else —
+  // every financial field above (entry/stop/target/sizing/probability/
+  // confidence) is exactly as the M9 scanner produced it and is left untouched.
+  if (opts.taVerdict != null || opts.consensusTally != null) {
+    draft.fuseVerdict = computeFuseVerdict({
+      taVerdict: opts.taVerdict,
+      consensusTally: opts.consensusTally as FuseInput["consensusTally"],
+    });
+  }
   await createProposal(db, draft);
   return { created: true };
 }

@@ -30,6 +30,7 @@ export type {
   Owner,
   Position,
   PositionStatus,
+  TaAnalysisQueue,
   TaCandidate,
   TechnicalAnalysisSnapshot,
   TradeProposal,
@@ -170,3 +171,14 @@ export {
   type CreateTaCandidateResult,
   type SetTaCandidateStatusResult,
 } from "./ta-candidates.js";
+export {
+  enqueueTaAnalysis,
+  claimPendingAnalysis,
+  markAnalysisDone,
+  listTaAnalysisQueue,
+  type EnqueueTaAnalysisInput,
+  type EnqueueTaAnalysisResult,
+  type ClaimedAnalysisItem,
+  type MarkAnalysisDoneResult,
+  type TaAnalysisQueueRow,
+} from "./ta-analysis-queue.js";

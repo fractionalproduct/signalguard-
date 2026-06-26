@@ -76,6 +76,20 @@ export async function GET(req: Request): Promise<Response> {
     return NextResponse.json({ ok: true, scanned: 0, created: 0, candidates: [] });
   }
 
+  // D4-B SEAM (discovery-driven TradingAgents). `candidates` here is SignalGuard's
+  // real producer of discovery symbols. To let SG discovery drive what the
+  // TradingAgents sidecar analyzes, enqueue each nominee for the sidecar to PULL
+  // (it has no DB creds; it reads claimed items from GET /api/ta/analysis-queue):
+  //
+  //   for (const c of candidates) {
+  //     await enqueueTaAnalysis(db, { symbol: c.symbol, action: "BUY",
+  //       discoveryReason: c.source });
+  //   }
+  //
+  // Left as a documented seam (not wired) so this Phase does not alter the
+  // existing discovery → proposal flow. enqueueTaAnalysis is exported from
+  // @signalguard/database and is idempotent (skips a symbol already PENDING).
+
   // 2. Snapshot the candidates so the manipulation gate has real flags. We reuse
   //    the analysis cycle with a minimal recordSnapshot (persist only; the alert
   //    transition/email machinery on the watchlist route is not needed here).
