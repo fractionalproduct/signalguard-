@@ -4,6 +4,9 @@
 #  - pinned, hashed deps (`pip install --require-hashes`) — H1
 #  - non-root runtime user — M2 (control 4)
 #  - minimal slim base
+#  - TradingAgents engine is VENDORED into this PRIVATE repo (no GitHub clone, no
+#    deploy key, nothing made public) — imported via PYTHONPATH. Provenance +
+#    pinned source SHA: vendor/VENDORED_FROM.txt. Apache-2.0 NOTICE: vendor/LICENSE.
 # Controls enforced OUTSIDE the image (see docker-compose.yml + host firewall):
 #  - read-only FS + cap-drop + pids/mem limits (compose)
 #  - default-deny egress allowlist (host firewall) — H2 / L1
@@ -21,47 +24,30 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # ---- Dependencies: PINNED + HASH-ENFORCED -----------------------------------
-# requirements.txt MUST be a fully-hashed export (see that file's header:
-# `uv export --format requirements-txt`, then pip-audit/osv-scanner). With
-# --require-hashes, pip refuses to install ANY requirement lacking a hash, so a
-# tampered/yanked package in the langchain tree cannot land silently.
-#
-# NOTE (scaffold): the committed requirements.txt is a PLACEHOLDER and contains
-# no real, hashed deps — this build step will (intentionally) install nothing
-# until the operator generates the audited, hashed file.
+# requirements.txt is a fully-hashed export (`uv export --format requirements-txt
+# --no-dev --no-emit-project`), audited with pip-audit (clean). With
+# --require-hashes pip refuses ANY requirement lacking a hash, so a tampered or
+# yanked package in the langchain tree cannot land silently. --no-deps: the
+# export already pins the full transitive set.
 COPY requirements.txt ./
 RUN pip install --require-hashes --no-deps -r requirements.txt
 
-# ---- TradingAgents package itself (pinned, audited checkout) -----------------
-# requirements.txt provides the DEPS (hash-enforced above); this installs just
-# the `tradingagents` package from a PINNED commit with --no-deps so the
-# hash-enforced dependency set is authoritative. Pin TA_REF to the SHA you
-# audited (the supply-chain review looked at c15200d, v0.2.5). git is needed only
-# at build time.
-# Our FORK carries the consensus panel + extra news vendors (Finnhub / EODHD /
-# Marketaux / GDELT / aggregate). PREREQUISITES before a production build:
-#   (1) the fork is PRIVATE — the build host must be able to clone it (a build-time
-#       git token / deploy key, or make the fork public);
-#   (2) merge feat/news-connectors -> main and pin TA_REF to that audited SHA;
-#   (3) re-run pip-audit/osv-scanner on the fork's dep tree (H1) before live use.
-# Upstream fallback (audited @ v0.2.5): TauricResearch/TradingAgents @ c15200d.
-ARG TA_REPO=https://github.com/fractionalproduct/TradingAgents.git
-ARG TA_REF=3378f76
-USER root
-RUN set -eux; \
-    apt-get update && apt-get install -y --no-install-recommends git; \
-    git clone "${TA_REPO}" /tmp/tradingagents; \
-    git -C /tmp/tradingagents checkout "${TA_REF}"; \
-    pip install --no-deps /tmp/tradingagents; \
-    rm -rf /tmp/tradingagents; \
-    apt-get purge -y git && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+# ---- TradingAgents engine: VENDORED (no clone, nothing public) ---------------
+# The `tradingagents` package (engine + our Finnhub/EODHD/Marketaux/GDELT/
+# aggregate connectors + consensus support) is committed under vendor/ in THIS
+# private repo and imported via PYTHONPATH. The build needs NO GitHub access and
+# NO deploy key; the fork can stay private/unused. Deps come from requirements.txt
+# above. To update the engine, re-vendor from the pinned source (vendor/
+# VENDORED_FROM.txt) and re-run pip-audit on a refreshed requirements.txt.
+COPY vendor/ ./vendor/
+ENV PYTHONPATH=/app/vendor
 
 # ---- Application code --------------------------------------------------------
 COPY emit_candidates.py consensus.py ./
 
 # ---- Non-root runtime user (control 4) --------------------------------------
-# Create a dedicated unprivileged user and a home for TradingAgents' cache
-# (~/.tradingagents). With a read-only root FS (compose), this dir is the ONLY
+# Dedicated unprivileged user + a home for TradingAgents' cache
+# (~/.tradingagents). With a read-only root FS (compose), that dir is the only
 # writable path and is mounted as a tmpfs/volume there.
 RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin tauser \
     && mkdir -p /home/tauser/.tradingagents \
@@ -69,7 +55,7 @@ RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin tauser \
 USER tauser
 ENV HOME=/home/tauser
 
-# Default: run the emitter once over the watchlist. The scheduler (cron/systemd
-# timer/compose `restart`) re-invokes it; the script is idempotent per
+# Run the emitter once over the work source (watchlist or queue); the host
+# scheduler (cron / Railway schedule) re-invokes it. Idempotent per
 # (run-date, symbol) via agentRunId, so a re-run dedupes server-side.
 CMD ["python", "emit_candidates.py"]
