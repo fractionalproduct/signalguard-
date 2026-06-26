@@ -86,6 +86,8 @@
     "lib/audit-view.ts",
     "lib/audit-view.test.ts",
     "lib/discovery-queue-view.ts",
-    "lib/discovery-queue-view.test.ts"
+    "lib/discovery-queue-view.test.ts",
+    "lib/observability-view.ts",
+    "lib/observability-view.test.ts"
   ]
 }

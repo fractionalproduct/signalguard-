@@ -112,6 +112,12 @@ export const NAV: NavEntry[] = [
         description:
           "The decision ledger — a read-only record of what the system did (autopilot decisions, discovery cycles, risk events, owner actions), filterable by event type.",
       },
+      {
+        href: "/observability",
+        label: "Observability",
+        description:
+          "How the TradingAgents integration is performing — proposal mix (TA vs deterministic), fuse-tier distribution and escalate rate, recent ingest outcomes, and autopilot activity.",
+      },
     ],
   },
   {
