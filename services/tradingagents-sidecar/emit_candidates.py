@@ -235,6 +235,14 @@ def build_graph(provider: str):
         config["quick_think_llm"] = quick
     if backend:  # required for ollama / a self-hosted OpenAI-compatible endpoint
         config["backend_url"] = backend
+    # News vendor: use the "aggregate" vendor (our fork) so the news analyst sees
+    # ALL available providers in one call — Finnhub/EODHD/Marketaux/GDELT (+ the
+    # keyed ones present) plus AlphaVantage/yfinance. tool_vendors is per-method
+    # and takes precedence over data_vendors; empty by default, so this clobbers
+    # nothing. Override with TA_NEWS_VENDOR (e.g. "finnhub,marketaux,gdelt,yfinance"
+    # for an ordered fallback chain instead of fan-out concat).
+    news_vendor = os.environ.get("TA_NEWS_VENDOR", "aggregate").strip()
+    config["tool_vendors"] = {"get_news": news_vendor, "get_global_news": news_vendor}
     return TradingAgentsGraph(config=config)
 
 
