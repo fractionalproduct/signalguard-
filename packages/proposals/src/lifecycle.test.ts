@@ -3,12 +3,23 @@ import { test } from "node:test";
 import {
   PROPOSAL_STATUSES,
   canTransition,
+  initialStatusForSource,
   isActionable,
   isCancelable,
   isExpiryEligible,
   isTerminal,
   type ProposalStatus,
 } from "./lifecycle.js";
+
+test("initialStatusForSource: TA-sourced -> PENDING_APPROVAL, everything else -> DRAFT", () => {
+  // The promotion invariant: only TRADING_AGENTS proposals enter the decision
+  // queue; widening this (e.g. to deterministic) must break this test on purpose.
+  assert.equal(initialStatusForSource("TRADING_AGENTS"), "PENDING_APPROVAL");
+  assert.equal(initialStatusForSource("DETERMINISTIC"), "DRAFT");
+  assert.equal(initialStatusForSource(undefined), "DRAFT");
+  assert.equal(initialStatusForSource(null), "DRAFT");
+  assert.equal(initialStatusForSource("SOMETHING_ELSE"), "DRAFT");
+});
 
 test("DRAFT can be approved, rejected, held, expired, or canceled", () => {
   assert.equal(canTransition("DRAFT", "APPROVED"), true);
