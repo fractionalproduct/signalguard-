@@ -8,6 +8,7 @@ export {
   PROPOSAL_STATUSES,
   EXPIRY_ELIGIBLE_STATUSES,
   canTransition,
+  initialStatusForSource,
   isActionable,
   isCancelable,
   isExpiryEligible,

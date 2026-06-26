@@ -5,7 +5,7 @@ import {
   type PrismaClient,
 } from "@signalguard/database";
 import type { MarketDataReadClient } from "@signalguard/market-data";
-import { generateProposalForSymbol } from "@signalguard/proposals";
+import { generateProposalForSymbol, initialStatusForSource } from "@signalguard/proposals";
 import { computeFuseVerdict, type FuseInput } from "./fuse";
 
 /**
@@ -83,6 +83,16 @@ export async function generateAndPersistProposal(
       consensusTally: opts.consensusTally as FuseInput["consensusTally"],
     });
   }
+  // TA-sourced proposals enter PENDING_APPROVAL so they are queued for a
+  // decision — manual approval, and (ONLY when autopilot is armed + tradingMode
+  // AUTOMATIC + Fuse not "escalate" + on the autonomy allowlist) auto-approval.
+  // This bypasses NO gate: the trade-analysis gate (display/approve time), the
+  // autopilot evaluateAutoApproval + Phase-6 mode gate + emergency stop, and the
+  // execute-orders final risk re-check all still run. Deterministic proposals
+  // stay DRAFT. The mapping lives in initialStatusForSource (single source of
+  // the promotion invariant, unit-tested).
+  draft.status = initialStatusForSource(opts.source);
+
   await createProposal(db, draft);
   return { created: true };
 }

@@ -1,4 +1,5 @@
 import type { ConfidenceLabel } from "@signalguard/probability";
+import type { ProposalStatus } from "./lifecycle.js";
 
 /**
  * Plain-data shape of a TradeProposal row — what the pure builder produces
@@ -37,4 +38,10 @@ export interface ProposalDraft {
    * reconciliation of intent vs TA verdict vs consensus. Display/advisory ONLY;
    * NEVER gates, sizes, promotes, or executes anything. */
   fuseVerdict?: unknown;
+  /** Initial lifecycle status. Defaults to DRAFT in createProposal. TA-sourced
+   * proposals are created at PENDING_APPROVAL so they enter the decision queue
+   * (manual approval, and the fully-gated autopilot path). Promotion bypasses no
+   * gate — the trade-analysis gate + autopilot checks + final risk re-check all
+   * still run. */
+  status?: ProposalStatus;
 }

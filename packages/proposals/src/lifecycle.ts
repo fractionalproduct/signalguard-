@@ -83,6 +83,21 @@ export function isActionable(status: ProposalStatus): boolean {
   return status === "DRAFT" || status === "PENDING_APPROVAL";
 }
 
+/**
+ * Initial lifecycle status for a newly-created proposal, by provenance.
+ *
+ * TA-sourced proposals enter PENDING_APPROVAL — the decision queue (manual
+ * approval AND the fully-gated autopilot path). Everything else starts DRAFT.
+ *
+ * This is the SINGLE place the promotion invariant lives: TA → queued for a
+ * decision, deterministic → DRAFT. Widening it (e.g. promoting deterministic
+ * proposals too, which would make them autopilot-eligible) must be a deliberate
+ * edit here, guarded by this function's test.
+ */
+export function initialStatusForSource(source?: string | null): ProposalStatus {
+  return source === "TRADING_AGENTS" ? "PENDING_APPROVAL" : "DRAFT";
+}
+
 /** True when the proposal may still be withdrawn (-> CANCELED). Broader than
  * the UI affordance, which exposes withdrawal only on APPROVED rows. */
 export function isCancelable(status: ProposalStatus): boolean {
