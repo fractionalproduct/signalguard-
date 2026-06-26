@@ -628,6 +628,14 @@ model TradeProposal {
   consensusTally    Json?
   /// The full analyst reports carried from the candidate. Display only.
   analysisReport    Json?
+  /// Phase 5 "Fuse" advisory label: a SUBTRACTIVE reconciliation of the
+  /// SignalGuard BUY intent vs TradingAgents' verdict vs the multi-LLM
+  /// consensus, shaped { tier: "aligned"|"flag"|"escalate"; note: string }.
+  /// Display/advisory ONLY — it NEVER gates anything: it cannot change
+  /// entry/stop/target/sizing/probability/confidence, cannot change status or
+  /// promote the proposal, and cannot cause execution. It can only annotate or
+  /// downgrade/escalate, never upgrade. Null = nothing to fuse.
+  fuseVerdict       Json?
   expiresAt         DateTime?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt

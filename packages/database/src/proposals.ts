@@ -49,6 +49,9 @@ export async function createProposal(
       analysisReport:
         (draft.analysisReport as Prisma.InputJsonValue | undefined) ??
         Prisma.JsonNull,
+      fuseVerdict:
+        (draft.fuseVerdict as Prisma.InputJsonValue | undefined) ??
+        Prisma.JsonNull,
     },
     select: { id: true },
   });

@@ -63,6 +63,13 @@ export interface TaAnalysisView {
   consensus: TaConsensusView | null;
 }
 
+/** The Phase 5 Fuse advisory label, normalized for display. Untrusted JSON
+ * (`Json?`), so every access is guarded and never parsed for control. */
+export interface FuseVerdictView {
+  tier: "aligned" | "flag" | "escalate";
+  note: string;
+}
+
 export interface ProposalDetailView {
   id: string;
   symbol: string;
@@ -91,6 +98,11 @@ export interface ProposalDetailView {
   /** TradingAgents rich analysis (reports + consensus), or null when the
    * proposal carries none. Untrusted display content — never parsed. */
   taAnalysis: TaAnalysisView | null;
+  /** Phase 5 Fuse advisory label, or null. Display/advisory ONLY — it never
+   * gates, sizes, promotes, or executes anything. Threaded separately from
+   * `taAnalysis` so a strong-dissent badge surfaces even when there are no
+   * reports/consensus to render. */
+  fuseVerdict: FuseVerdictView | null;
 }
 
 const EVENT_LABELS: Record<string, string> = {
@@ -149,7 +161,20 @@ export function buildProposalDetailView(
     activity: events.map((e) => buildActivityRow(e, nowMs)),
     activityAvailable,
     taAnalysis: buildTaAnalysis(proposal),
+    fuseVerdict: buildFuseVerdict(proposal.fuseVerdict),
   };
+}
+
+/** Normalize the proposal's `fuseVerdict` JSON into a display view, or null
+ * when absent/malformed. Like the other TA fields, it is untrusted JSON: the
+ * tier is whitelisted and the note is taken only when a non-empty string. */
+export function buildFuseVerdict(raw: unknown): FuseVerdictView | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const f = raw as Record<string, unknown>;
+  const tier = f.tier;
+  if (tier !== "aligned" && tier !== "flag" && tier !== "escalate") return null;
+  const note = typeof f.note === "string" ? f.note : "";
+  return { tier, note };
 }
 
 /** Normalize the proposal's TradingAgents fields into a display view, or null

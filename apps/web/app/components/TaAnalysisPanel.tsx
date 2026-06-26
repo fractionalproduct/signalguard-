@@ -1,4 +1,5 @@
 import type {
+  FuseVerdictView,
   TaAnalysisView,
   TaConsensusView,
   TaReportSection,
@@ -13,20 +14,33 @@ import type {
  * `dangerouslySetInnerHTML` anywhere in this file and there must never be.
  * Report bodies render inside a <pre> (whitespace preserved), never as HTML.
  */
-export function TaAnalysisPanel({ analysis }: { analysis: TaAnalysisView | null }) {
+export function TaAnalysisPanel({
+  analysis,
+  fuseVerdict = null,
+}: {
+  analysis: TaAnalysisView | null;
+  fuseVerdict?: FuseVerdictView | null;
+}) {
+  // The Fuse badge is the loudest signal (it can carry an `escalate`/strong
+  // dissent), so it renders OUTSIDE the analysis null-gate: a proposal can have
+  // a verdict-only escalate with no reports/consensus to show.
   if (analysis === null) {
-    // Both fields absent — render a subtle, consistent note rather than nothing
-    // so the section's absence is explained rather than silent.
     return (
-      <p className="muted" role="status">
-        No TA analysis for this proposal.
-      </p>
+      <div className="ta-analysis">
+        <FuseBadge fuse={fuseVerdict} />
+        {/* Both rich-analysis fields absent — explain the absence rather than
+            rendering nothing. */}
+        <p className="muted" role="status">
+          No TA analysis for this proposal.
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="ta-analysis">
-      {/* Phase 5: Fuse verdict badge renders here */}
+      {/* Phase 5: Fuse verdict badge */}
+      <FuseBadge fuse={fuseVerdict} />
 
       {analysis.consensus && (
         <TaConsensus consensus={analysis.consensus} verdict={analysis.verdict} />
@@ -39,6 +53,29 @@ export function TaAnalysisPanel({ analysis }: { analysis: TaAnalysisView | null 
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Color by tier: aligned=green, flag=amber, escalate=red. Note is UNTRUSTED
+ * model-derived text — rendered as plain text (default escaping), no HTML. */
+const FUSE_TIER_COLORS: Record<FuseVerdictView["tier"], string> = {
+  aligned: "#16a34a",
+  flag: "#d97706",
+  escalate: "#dc2626",
+};
+
+function FuseBadge({ fuse }: { fuse: FuseVerdictView | null }) {
+  if (fuse === null) return null;
+  return (
+    <div className="ta-fuse" role="status">
+      <span
+        className="status-pill ta-fuse-tier"
+        style={{ backgroundColor: FUSE_TIER_COLORS[fuse.tier], color: "#fff" }}
+      >
+        {fuse.tier}
+      </span>
+      {fuse.note && <span className="ta-fuse-note"> {fuse.note}</span>}
     </div>
   );
 }

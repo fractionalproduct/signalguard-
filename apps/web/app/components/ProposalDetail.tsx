@@ -84,7 +84,7 @@ export function ProposalDetail({ state }: { state: ProposalDetailState }) {
       </dl>
 
       <h2>TradingAgents analysis</h2>
-      <TaAnalysisPanel analysis={v.taAnalysis} />
+      <TaAnalysisPanel analysis={v.taAnalysis} fuseVerdict={v.fuseVerdict} />
 
       <h2>Notes</h2>
       {v.notesEditable ? (

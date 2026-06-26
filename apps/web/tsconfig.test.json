@@ -63,6 +63,8 @@
     "lib/options-view.test.ts",
     "lib/ta-ingest.ts",
     "lib/ta-ingest.test.ts",
+    "lib/fuse.ts",
+    "lib/fuse.test.ts",
     "lib/ta-analysis-queue.ts",
     "lib/ta-analysis-queue.test.ts",
     "lib/option-sync.ts",
