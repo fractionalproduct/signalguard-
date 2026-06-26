@@ -23,7 +23,17 @@ export interface AutopilotConfig {
   minConfidence: number;
   minExpectedValueR: number;
   maxSignalAgeSeconds: number;
+  /**
+   * MANUAL = every proposal needs owner approval; AUTOMATIC = TA-sourced
+   * proposals may auto-approve when not escalated. Only meaningful when armed.
+   */
+  tradingMode: "MANUAL" | "AUTOMATIC";
   updatedAt: Date | null;
+}
+
+/** Coerce any value to a valid trading mode (default MANUAL on bad/missing). */
+function normalizeTradingMode(v: unknown): "MANUAL" | "AUTOMATIC" {
+  return v === "AUTOMATIC" ? "AUTOMATIC" : "MANUAL";
 }
 
 /** The safe defaults applied when no config row exists yet. */
@@ -41,6 +51,7 @@ export const AUTOPILOT_DEFAULTS: AutopilotConfig = {
   // 1h: proposals are generated hourly off daily bars, so a 5-min TTL would make
   // a proposal eligible for only a sliver of its life. Configurable.
   maxSignalAgeSeconds: 3600,
+  tradingMode: "MANUAL",
   updatedAt: null,
 };
 
@@ -68,6 +79,7 @@ export async function getAutopilotConfig(
     minConfidence: row.minConfidence,
     minExpectedValueR: row.minExpectedValueR,
     maxSignalAgeSeconds: row.maxSignalAgeSeconds,
+    tradingMode: normalizeTradingMode(row.tradingMode),
     updatedAt: row.updatedAt,
   };
 }
@@ -109,6 +121,7 @@ export async function setAutopilotConfig(
     minConfidence: clampUnit(merged.minConfidence),
     minExpectedValueR: Math.max(0, merged.minExpectedValueR),
     maxSignalAgeSeconds: Math.max(1, Math.round(merged.maxSignalAgeSeconds)),
+    tradingMode: normalizeTradingMode(merged.tradingMode),
     updatedBy: patch.updatedBy ?? null,
   };
 
@@ -129,6 +142,7 @@ export async function setAutopilotConfig(
     minConfidence: row.minConfidence,
     minExpectedValueR: row.minExpectedValueR,
     maxSignalAgeSeconds: row.maxSignalAgeSeconds,
+    tradingMode: normalizeTradingMode(row.tradingMode),
     updatedAt: row.updatedAt,
   };
 }

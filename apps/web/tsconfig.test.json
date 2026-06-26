@@ -78,6 +78,8 @@
     "lib/option-select.ts",
     "lib/option-select.test.ts",
     "lib/alphavantage-insider.ts",
-    "lib/alphavantage-insider.test.ts"
+    "lib/alphavantage-insider.test.ts",
+    "lib/ta-automation.ts",
+    "lib/ta-automation.test.ts"
   ]
 }

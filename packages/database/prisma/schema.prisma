@@ -147,6 +147,11 @@ model AutopilotConfig {
   /// eligible only briefly. Configurable.
   maxSignalAgeSeconds Int @default(3600)
 
+  /// MANUAL = every proposal needs owner approval; AUTOMATIC = TA-sourced
+  /// proposals may auto-approve when not escalated. Only meaningful when
+  /// autopilot is armed.
+  tradingMode String @default("MANUAL")
+
   updatedBy String?
   updatedAt DateTime @updatedAt
 }

@@ -20,6 +20,16 @@ import {
   parseAutonomyAllowlist,
 } from "../../../../lib/auto-approval";
 import { sizeProposalForApproval } from "../../../../lib/proposal-sizing";
+import { evaluateTaAutomation } from "../../../../lib/ta-automation";
+
+/** Safely read `tier` from the proposal's `fuseVerdict` JSON column (Json?). */
+function fuseTierOf(v: unknown): string | null {
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    const t = (v as Record<string, unknown>).tier;
+    return typeof t === "string" ? t : null;
+  }
+  return null;
+}
 
 /**
  * Autonomous-trading engine (the "AI approves on its own" mode), as a Vercel
@@ -161,6 +171,26 @@ export async function GET(req: Request): Promise<Response> {
         type: "autopilot.shadow_decision",
         source: "trading-worker",
         metadata: { proposalId: p.id, symbol: p.symbol, approve: result.approve, reasons: result.reasons, evR: result.evR },
+      });
+      continue;
+    }
+
+    // Phase 6 — Manual/Automatic mode gate (ADDITIVE; armed path only). This
+    // runs IN ADDITION to every gate above (allowlist, evaluateAutoApproval) and
+    // can only further restrict: for TA-sourced proposals it blocks auto-approve
+    // unless tradingMode is AUTOMATIC and the fusion verdict is not "escalate".
+    // Non-TA proposals pass through unchanged. Blocked proposals are skipped
+    // (left for manual owner review) — never approved/authorized here.
+    const taGate = evaluateTaAutomation({
+      source: p.source,
+      tradingMode: config.tradingMode,
+      fuseTier: fuseTierOf(p.fuseVerdict),
+    });
+    if (!taGate.auto) {
+      await recordAuditEvent({
+        type: "autopilot.skipped",
+        source: "trading-worker",
+        metadata: { proposalId: p.id, symbol: p.symbol, reasons: [taGate.reason] },
       });
       continue;
     }

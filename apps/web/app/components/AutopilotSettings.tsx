@@ -174,6 +174,23 @@ export async function AutopilotSettings() {
         </div>
 
         <div className="autopilot-field">
+          <label htmlFor="ap-mode">Trading mode</label>
+          <select
+            id="ap-mode"
+            name="tradingMode"
+            defaultValue={config.tradingMode}
+          >
+            <option value="MANUAL">
+              Manual — every proposal needs your approval
+            </option>
+            <option value="AUTOMATIC">
+              Automatic — TradingAgents proposals may auto-approve (unless
+              escalated)
+            </option>
+          </select>
+        </div>
+
+        <div className="autopilot-field">
           <label htmlFor="ap-age">Max signal age (seconds)</label>
           <input
             id="ap-age"

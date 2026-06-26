@@ -61,6 +61,10 @@ export async function saveAutopilotConfigAction(
   const minConfidence = numOr(formData.get("minConfidence"), 0.7);
   const minExpectedValueR = numOr(formData.get("minExpectedValueR"), 0.1);
   const maxSignalAgeSeconds = intOr(formData.get("maxSignalAgeSeconds"), 3600);
+  // Manual/Automatic trading mode (Phase 6). Default MANUAL on anything but the
+  // explicit "AUTOMATIC" value; setAutopilotConfig re-validates as well.
+  const tradingMode =
+    formData.get("tradingMode") === "AUTOMATIC" ? "AUTOMATIC" : "MANUAL";
 
   // Arming guard: arming requires BOTH a capital cap and a max-new limit.
   let shadowMode = !armed;
@@ -87,6 +91,7 @@ export async function saveAutopilotConfigAction(
     minConfidence,
     minExpectedValueR,
     maxSignalAgeSeconds,
+    tradingMode,
     updatedBy: owner.id,
   });
 
