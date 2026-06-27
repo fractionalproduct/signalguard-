@@ -92,6 +92,8 @@
     "lib/option-proposals-view.ts",
     "lib/option-proposals-view.test.ts",
     "lib/option-execution.ts",
-    "lib/option-execution.test.ts"
+    "lib/option-execution.test.ts",
+    "lib/assistant.ts",
+    "lib/assistant.test.ts"
   ]
 }
