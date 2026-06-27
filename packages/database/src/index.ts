@@ -27,6 +27,7 @@ export type {
   Order,
   OptionContract,
   OptionPosition,
+  OptionProposal,
   Owner,
   Position,
   PositionStatus,
@@ -142,6 +143,17 @@ export {
   type SetNotesResult,
   type ReduceProposalResult,
 } from "./proposals.js";
+export {
+  createOptionProposal,
+  listOptionProposals,
+  getOptionProposalById,
+  setOptionProposalStatus,
+  approveOptionProposal,
+  rejectOptionProposal,
+  type OptionProposalDraft,
+  type ListOptionProposalsOptions,
+  type SetOptionProposalStatusResult,
+} from "./option-proposals.js";
 export {
   createOrder,
   getOrderById,
