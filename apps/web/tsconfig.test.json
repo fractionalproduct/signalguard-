@@ -90,6 +90,8 @@
     "lib/observability-view.ts",
     "lib/observability-view.test.ts",
     "lib/option-proposals-view.ts",
-    "lib/option-proposals-view.test.ts"
+    "lib/option-proposals-view.test.ts",
+    "lib/option-execution.ts",
+    "lib/option-execution.test.ts"
   ]
 }
