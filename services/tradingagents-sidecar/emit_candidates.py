@@ -214,18 +214,22 @@ def build_graph(provider: str):
     """
     # Import inside the function: TradingAgents is only present on the sidecar.
     from tradingagents.graph.trading_graph import TradingAgentsGraph  # type: ignore
+    from tradingagents.default_config import DEFAULT_CONFIG  # type: ignore
 
-    # Real config keys (default_config defaults: openai / gpt-5.5 / gpt-5.4-mini).
-    # Models are env-overridable so non-OpenAI providers (or a local Ollama via
-    # TA_BACKEND_URL) can set appropriate model ids. Keep the debate loop tight to
-    # bound LLM cost (the host MUST also enforce a hard billing cap).
-    config = {
-        "llm_provider": provider,
-        "max_debate_rounds": int(os.environ.get("TA_MAX_DEBATE_ROUNDS", "1")),
-        "max_risk_discuss_rounds": 1,
-        # max_recur_limit defaults to 100 — lower it to bound runaway recursion.
-        "max_recur_limit": int(os.environ.get("TA_MAX_RECUR_LIMIT", "30")),
-    }
+    # Start from the FULL DEFAULT_CONFIG and override — TradingAgentsGraph reads
+    # required keys (data_cache_dir, results_dir, memory_log_path) DIRECTLY and
+    # does NOT merge a partial config, so a bare dict raises KeyError on build.
+    # Those paths default under ~/.tradingagents — the container's only writable
+    # mount (tmpfs) — so cache/logs/memory write fine under the read-only root FS.
+    # Models are env-overridable so non-OpenAI providers (or local Ollama via
+    # TA_BACKEND_URL) can set appropriate ids. Keep the debate loop tight to bound
+    # LLM cost (the host MUST also enforce a hard billing cap).
+    config = DEFAULT_CONFIG.copy()
+    config["llm_provider"] = provider
+    config["max_debate_rounds"] = int(os.environ.get("TA_MAX_DEBATE_ROUNDS", "1"))
+    config["max_risk_discuss_rounds"] = 1
+    # max_recur_limit defaults to 100 — lower it to bound runaway recursion.
+    config["max_recur_limit"] = int(os.environ.get("TA_MAX_RECUR_LIMIT", "30"))
     deep = os.environ.get("TA_DEEP_LLM", "").strip()
     quick = os.environ.get("TA_QUICK_LLM", "").strip()
     backend = os.environ.get("TA_BACKEND_URL", "").strip()
