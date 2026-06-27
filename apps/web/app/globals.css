@@ -1172,3 +1172,48 @@ h2 {
   max-width: 480px;
   overflow-wrap: anywhere;
 }
+
+/* Owner chat assistant (read-only Q&A) */
+.assistant-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.assistant-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: 14px;
+  padding: 12px 14px;
+  max-width: 760px;
+}
+.assistant-msg--user {
+  align-self: flex-end;
+  background: rgba(245, 166, 35, 0.13);
+  border: 1px solid rgba(245, 166, 35, 0.25);
+}
+.assistant-msg--assistant {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(154, 163, 178, 0.18);
+}
+.assistant-msg__who {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.assistant-msg__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.assistant-pending {
+  align-self: flex-start;
+  margin: 4px 0 0;
+}

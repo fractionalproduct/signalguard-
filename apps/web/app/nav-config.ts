@@ -36,6 +36,12 @@ export const NAV: NavEntry[] = [
       "Your paper portfolio at a glance — live positions, equity, and profit/loss read straight from the broker.",
   },
   {
+    href: "/assistant",
+    label: "Assistant",
+    description:
+      "Ask about your portfolio, a symbol's latest analysis, or the proposal queue. Read-only — the assistant explains your data; it can't place or change trades.",
+  },
+  {
     label: "Trading",
     description:
       "Your trading workflow — candidate trades awaiting action, manual options, and your long-run scorecard.",
