@@ -49,11 +49,25 @@ test("every tool schema is strict and well-formed", () => {
   }
 });
 
-test("get_research requires a symbol; the read-only tools take no args", () => {
+test("symbol tools require a symbol; the no-arg reads take none", () => {
   const byName = new Map(ASSISTANT_TOOLS.map((t) => [t.name, t]));
   assert.deepEqual(byName.get("get_research")?.input_schema.required, ["symbol"]);
+  assert.deepEqual(byName.get("propose_trade")?.input_schema.required, ["symbol"]);
   assert.deepEqual(byName.get("get_portfolio")?.input_schema.required, []);
   assert.deepEqual(byName.get("list_proposals")?.input_schema.required, []);
+});
+
+test("propose_trade is the only write tool exposed", () => {
+  // The whole tool surface is three reads + propose_trade. If a new mutating
+  // tool is added, this test should be updated deliberately (it's a safety
+  // checkpoint, not a formality).
+  const names = ASSISTANT_TOOLS.map((t) => t.name).sort();
+  assert.deepEqual(names, [
+    "get_portfolio",
+    "get_research",
+    "list_proposals",
+    "propose_trade",
+  ]);
 });
 
 test("tool names are unique and exported in sync", () => {
@@ -62,11 +76,12 @@ test("tool names are unique and exported in sync", () => {
   assert.deepEqual(ASSISTANT_TOOL_NAMES, names);
 });
 
-test("the system prompt holds the two safety lanes", () => {
-  // Report-don't-advise lane and the never-execute lane must both be present —
-  // these are load-bearing, not decoration.
+test("the system prompt holds the safety lanes", () => {
+  // Load-bearing, not decoration: report-don't-advise, the can-draft-but-never-
+  // execute boundary, and the honest report of a gate decline.
   assert.match(ASSISTANT_SYSTEM, /deterministic/i);
-  assert.match(ASSISTANT_SYSTEM, /cannot place, size, cancel, or execute/i);
+  assert.match(ASSISTANT_SYSTEM, /cannot approve, size the final order, or execute/i);
+  assert.match(ASSISTANT_SYSTEM, /DECLINE/);
 });
 
 test("toProviderMessages maps text turns 1:1", () => {

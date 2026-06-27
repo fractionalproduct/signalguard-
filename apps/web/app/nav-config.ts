@@ -39,7 +39,7 @@ export const NAV: NavEntry[] = [
     href: "/assistant",
     label: "Assistant",
     description:
-      "Ask about your portfolio, a symbol's latest analysis, or the proposal queue. Read-only — the assistant explains your data; it can't place or change trades.",
+      "Ask about your portfolio, a symbol's latest analysis, or the proposal queue — and ask it to draft a trade. Drafts land in your queue as proposals you approve; the assistant never approves or executes anything itself.",
   },
   {
     label: "Trading",
