@@ -107,8 +107,15 @@ function normalizeSide(raw: string): TradeSide | null {
  * object wrapping one under `data`. Rows missing a ticker or an unrecognized
  * transaction type are skipped. Tolerant of common field-name variants so a
  * minor Quiver schema difference doesn't silently drop everything.
+ *
+ * `defaultPerson` is used when a row carries no name field — the executive
+ * (Trump) endpoint has no per-row name, so the caller supplies "Donald Trump";
+ * the Congress endpoint names each member per row, so the caller passes "".
  */
-export function mapQuiverTrades(raw: unknown): DisclosedTrade[] {
+export function mapQuiverTrades(
+  raw: unknown,
+  defaultPerson = "",
+): DisclosedTrade[] {
   const rows = Array.isArray(raw)
     ? raw
     : typeof raw === "object" && raw !== null && Array.isArray((raw as { data?: unknown }).data)
@@ -136,7 +143,7 @@ export function mapQuiverTrades(raw: unknown): DisclosedTrade[] {
     out.push({
       ticker,
       side,
-      person: pick(row, ["Name", "Representative", "Filer", "Politician"]) || "Donald Trump",
+      person: pick(row, ["Name", "Representative", "Filer", "Politician"]) || defaultPerson,
       filedDate,
       txnDate,
       amountLowUsd,
@@ -144,6 +151,57 @@ export function mapQuiverTrades(raw: unknown): DisclosedTrade[] {
     });
   }
   return out;
+}
+
+/**
+ * Curated default set of watched members of Congress — the most-tracked active
+ * traders. This is a STARTING POINT, not a claim that any of them beat the
+ * market (the evidence is weak and disclosures lag 30–45 days). Override with the
+ * WATCHED_POLITICIANS env var (comma-separated). Trump is watched separately via
+ * the executive endpoint.
+ */
+export const DEFAULT_WATCHED_POLITICIANS = [
+  "Nancy Pelosi",
+  "Tim Moore",
+  "Dan Crenshaw",
+  "Ro Khanna",
+  "Marjorie Taylor Greene",
+  "Josh Gottheimer",
+];
+
+/** Split a comma-separated WATCHED_POLITICIANS value into trimmed names. */
+export function parsePoliticianList(raw: string | undefined): string[] {
+  return (raw ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
+/** Lowercased name tokens, punctuation stripped — handles "Pelosi, Nancy". */
+function nameTokens(s: string): string[] {
+  return s
+    .toLowerCase()
+    .replace(/[.,]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/**
+ * Keep only trades whose `person` matches one of the watched names. A match is
+ * token-subset: every token of a watched name appears in the trade's person —
+ * so "Nancy Pelosi" matches "Nancy Pelosi" and "Pelosi, Nancy", and a bare
+ * "Pelosi" watch matches both. Empty watch list => nothing (fail-closed).
+ */
+export function filterByPoliticians<T extends { person: string }>(
+  trades: readonly T[],
+  watched: readonly string[],
+): T[] {
+  const wanted = watched.map(nameTokens).filter((t) => t.length > 0);
+  if (wanted.length === 0) return [];
+  return trades.filter((tr) => {
+    const have = new Set(nameTokens(tr.person));
+    return wanted.some((w) => w.every((tok) => have.has(tok)));
+  });
 }
 
 /** A nomination: the ticker plus the disclosure that justified it (for notes). */
@@ -195,19 +253,16 @@ export function selectTradesToNominate(
     }));
 }
 
-const DEFAULT_ENDPOINT = "https://api.quiverquant.com/beta/live/trumptrades";
+const DEFAULT_TRUMP_ENDPOINT = "https://api.quiverquant.com/beta/live/trumptrades";
+const DEFAULT_CONGRESS_ENDPOINT = "https://api.quiverquant.com/beta/live/congresstrading";
 
-/**
- * Fetch + map the President's disclosed trades from Quiver. Returns null
- * ("unavailable") when QUIVER_API_KEY is unset, the response is non-OK, or the
- * fetch throws — so the cron no-ops cleanly instead of erroring. Endpoint and
- * the Bearer auth are Quiver's documented shape; override the endpoint with
- * QUIVER_TRUMP_ENDPOINT if their path differs.
- */
-export async function fetchTrumpTrades(): Promise<DisclosedTrade[] | null> {
+/** GET a Quiver endpoint and map it; null on no-key / non-OK / throw. */
+async function fetchQuiver(
+  endpoint: string,
+  defaultPerson: string,
+): Promise<DisclosedTrade[] | null> {
   const apiKey = process.env.QUIVER_API_KEY;
   if (!apiKey) return null;
-  const endpoint = process.env.QUIVER_TRUMP_ENDPOINT ?? DEFAULT_ENDPOINT;
   try {
     const res = await fetch(endpoint, {
       headers: {
@@ -217,8 +272,32 @@ export async function fetchTrumpTrades(): Promise<DisclosedTrade[] | null> {
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) return null;
-    return mapQuiverTrades(await res.json());
+    return mapQuiverTrades(await res.json(), defaultPerson);
   } catch {
     return null;
   }
+}
+
+/**
+ * The President's disclosed trades (executive 278-T). Rows have no per-row name,
+ * so default the person to "Donald Trump". Override the path with
+ * QUIVER_TRUMP_ENDPOINT. null == unavailable (cron no-ops).
+ */
+export function fetchTrumpTrades(): Promise<DisclosedTrade[] | null> {
+  return fetchQuiver(
+    process.env.QUIVER_TRUMP_ENDPOINT ?? DEFAULT_TRUMP_ENDPOINT,
+    "Donald Trump",
+  );
+}
+
+/**
+ * Recent congressional trades (all members; the caller narrows to the watched
+ * set with filterByPoliticians). Each row names its member, so no default
+ * person. Override the path with QUIVER_CONGRESS_ENDPOINT. null == unavailable.
+ */
+export function fetchCongressTrades(): Promise<DisclosedTrade[] | null> {
+  return fetchQuiver(
+    process.env.QUIVER_CONGRESS_ENDPOINT ?? DEFAULT_CONGRESS_ENDPOINT,
+    "",
+  );
 }

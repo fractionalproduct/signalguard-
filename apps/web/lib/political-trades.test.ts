@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  filterByPoliticians,
   mapQuiverTrades,
   parseAmountRangeUsd,
+  parsePoliticianList,
   selectTradesToNominate,
   toIsoDate,
   type DisclosedTrade,
@@ -45,10 +47,13 @@ test("toIsoDate normalizes or rejects", () => {
 // ---- mapQuiverTrades (defensive) ----
 
 test("mapQuiverTrades parses array rows and field-name variants", () => {
-  const out = mapQuiverTrades([
-    { Ticker: "nvda", Transaction: "Purchase", ReportDate: "2026-06-20", TransactionDate: "2026-05-20", Range: "$1,001 - $15,000" },
-    { symbol: "lmt", type: "Sale", Filed: "2026-06-19T00:00:00Z", Amount: "$250,000", Name: "Donald Trump" },
-  ]);
+  const out = mapQuiverTrades(
+    [
+      { Ticker: "nvda", Transaction: "Purchase", ReportDate: "2026-06-20", TransactionDate: "2026-05-20", Range: "$1,001 - $15,000" },
+      { symbol: "lmt", type: "Sale", Filed: "2026-06-19T00:00:00Z", Amount: "$250,000", Name: "Donald Trump" },
+    ],
+    "Donald Trump", // executive endpoint default
+  );
   assert.equal(out.length, 2);
   assert.deepEqual(out[0], {
     ticker: "NVDA",
@@ -61,6 +66,15 @@ test("mapQuiverTrades parses array rows and field-name variants", () => {
   });
   assert.equal(out[1].ticker, "LMT");
   assert.equal(out[1].side, "SELL");
+});
+
+test("mapQuiverTrades uses per-row member name; no default => empty person", () => {
+  const out = mapQuiverTrades([
+    { Ticker: "AAPL", Transaction: "Purchase", Representative: "Nancy Pelosi" },
+    { Ticker: "MSFT", Transaction: "Purchase" }, // no name, no default
+  ]);
+  assert.equal(out[0].person, "Nancy Pelosi");
+  assert.equal(out[1].person, "");
 });
 
 test("mapQuiverTrades accepts {data:[...]} wrapper and skips junk rows", () => {
@@ -147,4 +161,31 @@ test("falls back to txnDate when filedDate is null", () => {
     NOW,
   );
   assert.deepEqual(out.map((n) => n.ticker), ["AAPL"]);
+});
+
+// ---- watched-politician filter ----
+
+test("parsePoliticianList trims, drops blanks, splits on commas", () => {
+  assert.deepEqual(parsePoliticianList("Nancy Pelosi, Tim Moore ,, Ro Khanna"), [
+    "Nancy Pelosi",
+    "Tim Moore",
+    "Ro Khanna",
+  ]);
+  assert.deepEqual(parsePoliticianList(""), []);
+  assert.deepEqual(parsePoliticianList(undefined), []);
+});
+
+test("filterByPoliticians matches by token-subset, order- and format-insensitive", () => {
+  const rows = [
+    { person: "Nancy Pelosi", id: 1 },
+    { person: "Pelosi, Nancy", id: 2 }, // "Last, First"
+    { person: "Tim Moore", id: 3 },
+    { person: "Some Other Rep", id: 4 },
+  ];
+  const out = filterByPoliticians(rows, ["nancy pelosi", "Tim Moore"]);
+  assert.deepEqual(out.map((r) => r.id), [1, 2, 3]);
+});
+
+test("filterByPoliticians with an empty watch list returns nothing (fail-closed)", () => {
+  assert.deepEqual(filterByPoliticians([{ person: "Nancy Pelosi" }], []), []);
 });

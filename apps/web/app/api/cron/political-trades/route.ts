@@ -5,7 +5,11 @@ import { getDb, listProposals } from "@signalguard/database";
 import { isAuthorizedCronRequest } from "../../../../lib/cron-auth";
 import { generateAndPersistProposal } from "../../../../lib/proposal-generation";
 import {
+  DEFAULT_WATCHED_POLITICIANS,
+  fetchCongressTrades,
   fetchTrumpTrades,
+  filterByPoliticians,
+  parsePoliticianList,
   selectTradesToNominate,
 } from "../../../../lib/political-trades";
 
@@ -49,10 +53,27 @@ export async function GET(req: Request): Promise<Response> {
     return NextResponse.json({ ok: true, reason: "disabled", created: 0 });
   }
 
-  const trades = await fetchTrumpTrades();
-  if (trades === null) {
+  // Watched members of Congress (curated default, overridable). Trump is watched
+  // separately via the executive endpoint.
+  const watched =
+    process.env.WATCHED_POLITICIANS !== undefined
+      ? parsePoliticianList(process.env.WATCHED_POLITICIANS)
+      : DEFAULT_WATCHED_POLITICIANS;
+
+  const [trump, congressAll] = await Promise.all([
+    fetchTrumpTrades(),
+    watched.length > 0 ? fetchCongressTrades() : Promise.resolve(null),
+  ]);
+  if (trump === null && congressAll === null) {
     return NextResponse.json({ ok: true, reason: "source_unavailable", created: 0 });
   }
+
+  // Merge the President's disclosures with the watched members' (filtered from
+  // the all-Congress feed). The shared filter/gate below treats them uniformly.
+  const trades = [
+    ...(trump ?? []),
+    ...(congressAll ? filterByPoliticians(congressAll, watched) : []),
+  ];
 
   const marketData = createAlpacaMarketDataFromEnv();
   if (!marketData) {
@@ -120,6 +141,7 @@ export async function GET(req: Request): Promise<Response> {
 
   return NextResponse.json({
     ok: true,
+    watched: watched.length,
     disclosed: trades.length,
     nominated: nominations.length,
     created,
