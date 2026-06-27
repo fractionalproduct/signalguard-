@@ -1,4 +1,18 @@
+import Link from "next/link";
+
 import type { AddChannelResult } from "../../lib/sources-admin";
+
+/**
+ * In-page back link. /sources lives outside the (dashboard) route group, so it
+ * has no sidebar nav — without this there is no way back to the app.
+ */
+function BackLink() {
+  return (
+    <Link href="/home" className="back-link">
+      ← Back to dashboard
+    </Link>
+  );
+}
 
 /**
  * Presentational "Add a Telegram channel" form. Pure UI: it receives the
@@ -21,6 +35,7 @@ export function AddSourceForm({ enabled, action, result }: AddSourceFormProps) {
 
   return (
     <section className="page-card">
+      <BackLink />
       <p className="eyebrow">Owner tools</p>
       <h1>Sources</h1>
       <p className="lead">
@@ -98,6 +113,7 @@ function ResultBanner({ result }: { result?: AddChannelResult }) {
 function DisabledCard() {
   return (
     <section className="page-card">
+      <BackLink />
       <p className="eyebrow">Owner tools · disabled</p>
       <h1>Sources</h1>
       <p className="lead">Adding sources is turned off.</p>
