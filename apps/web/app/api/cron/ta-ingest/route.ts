@@ -104,6 +104,7 @@ export async function GET(req: Request): Promise<Response> {
           taVerdict: candidate.taVerdict,
           consensusTally: candidate.consensusTally,
           analysisReport: candidate.analysisReport,
+          taSummary: candidate.taSummary,
         },
       );
       if (created) {

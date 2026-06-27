@@ -39,6 +39,7 @@ export async function generateAndPersistProposal(
     taVerdict?: string | null;
     consensusTally?: unknown;
     analysisReport?: unknown;
+    taSummary?: string | null;
   } = {},
 ): Promise<{ created: boolean }> {
   const end = new Date();
@@ -73,6 +74,7 @@ export async function generateAndPersistProposal(
   draft.taVerdict = opts.taVerdict;
   draft.consensusTally = opts.consensusTally;
   draft.analysisReport = opts.analysisReport;
+  draft.taSummary = opts.taSummary;
   // Phase 5 — Fuse stage: a SUBTRACTIVE advisory label computed ONLY when a TA
   // verdict or consensus is present. It annotates the draft and NOTHING else —
   // every financial field above (entry/stop/target/sizing/probability/
