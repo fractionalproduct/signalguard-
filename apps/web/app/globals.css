@@ -1263,3 +1263,45 @@ h2 {
   align-self: flex-start;
   margin: 4px 0 0;
 }
+
+/* Symbol classification — theme filter chips + per-row theme tags (Research) */
+.theme-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 8px;
+}
+.theme-chip {
+  border: 1px solid rgba(154, 163, 178, 0.3);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.04);
+}
+.theme-chip:hover { background: rgba(245, 166, 35, 0.13); }
+.theme-chip--active {
+  background: rgba(245, 166, 35, 0.2);
+  border-color: rgba(245, 166, 35, 0.55);
+  color: #ffd38a;
+}
+.theme-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.theme-tag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  text-decoration: none;
+  border: 1px solid rgba(154, 163, 178, 0.25);
+  border-radius: 6px;
+  padding: 1px 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.theme-tag:hover { color: #ffd38a; border-color: rgba(245, 166, 35, 0.45); }

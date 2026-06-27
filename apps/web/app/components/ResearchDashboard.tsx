@@ -4,20 +4,29 @@ import type {
   ResearchSymbolRow,
   ResearchView,
 } from "../../lib/research-view";
+import {
+  classifySymbol,
+  filterByTheme,
+  groupBySector,
+  listThemes,
+} from "../../lib/classification";
 
 /**
  * Presentational M7 research dashboard. Renders a symbol-lookup search bar plus
  * one of the explicit states from loadResearchState(): empty (no snapshots yet),
- * error (DB or schema problem), or ok (a per-symbol latest-snapshot table). The
- * snapshot table itself is read-only; the search bar navigates into the
- * /research/[symbol] drill-down (which works even with no watchlist snapshots).
+ * error (DB or schema problem), or ok (per-symbol snapshots GROUPED BY SECTOR,
+ * with theme tags and a theme filter). The snapshot table is read-only; the
+ * search bar navigates into the /research/[symbol] drill-down.
  */
 export function ResearchDashboard({
   state,
   searchAction,
+  theme,
 }: {
   state: ResearchState;
   searchAction?: (formData: FormData) => void | Promise<void>;
+  /** Active theme filter (canonical label) or null for "all". */
+  theme?: string | null;
 }) {
   return (
     <>
@@ -27,7 +36,7 @@ export function ResearchDashboard({
       ) : state.status === "error" ? (
         <ErrorCard message={state.message} />
       ) : (
-        <ResearchOk view={state.view} />
+        <ResearchOk view={state.view} theme={theme ?? null} />
       )}
     </>
   );
@@ -103,22 +112,79 @@ function ErrorCard({ message }: { message: string }) {
   );
 }
 
-function ResearchOk({ view }: { view: ResearchView }) {
+function ResearchOk({
+  view,
+  theme,
+}: {
+  view: ResearchView;
+  theme: string | null;
+}) {
+  const filtered = filterByTheme(view.symbols, theme);
+  const groups = groupBySector(filtered);
   return (
     <section className="page-card">
       <p className="eyebrow">Beginner view · read-only</p>
       <h1>Research</h1>
       <p className="lead">
-        Latest watchlist analysis snapshot per symbol. Computed by the general
-        worker on a cycle; refresh to see newer data.
+        Latest watchlist analysis snapshot per symbol, grouped by sector.
+        Filter by theme below; computed by the general worker on a cycle.
       </p>
-      <SnapshotsTable rows={view.symbols} />
+
+      <ThemeFilter active={theme} />
+
+      {filtered.length === 0 ? (
+        <div className="empty-state" role="status">
+          No watched symbols in <strong>{theme}</strong> yet.{" "}
+          <Link href="/research">Show all</Link>
+        </div>
+      ) : (
+        groups.map((group) => (
+          <div key={group.sector} className="signal-group">
+            <h2 className="signal-group-title">
+              {group.sector} <span className="muted">({group.rows.length})</span>
+            </h2>
+            <SnapshotsTable rows={group.rows} />
+          </div>
+        ))
+      )}
+
       <p className="muted" style={{ marginTop: 12 }}>
-        Showing {view.symbols.length} symbol
-        {view.symbols.length === 1 ? "" : "s"} from {view.totalSnapshots}{" "}
-        recent snapshot{view.totalSnapshots === 1 ? "" : "s"}.
+        Showing {filtered.length} symbol{filtered.length === 1 ? "" : "s"}
+        {theme ? (
+          <>
+            {" "}
+            in <strong>{theme}</strong>
+          </>
+        ) : null}{" "}
+        from {view.totalSnapshots} recent snapshot
+        {view.totalSnapshots === 1 ? "" : "s"}.
       </p>
     </section>
+  );
+}
+
+/** Theme filter chips. JS-free links that round-trip ?theme= through the URL. */
+function ThemeFilter({ active }: { active: string | null }) {
+  return (
+    <div className="theme-filter" role="navigation" aria-label="Filter by theme">
+      <Link
+        href="/research"
+        className={`theme-chip${active === null ? " theme-chip--active" : ""}`}
+        aria-current={active === null ? "true" : undefined}
+      >
+        All
+      </Link>
+      {listThemes().map((t) => (
+        <Link
+          key={t}
+          href={`/research?theme=${encodeURIComponent(t)}`}
+          className={`theme-chip${active === t ? " theme-chip--active" : ""}`}
+          aria-current={active === t ? "true" : undefined}
+        >
+          {t}
+        </Link>
+      ))}
+    </div>
   );
 }
 
@@ -151,6 +217,7 @@ function SnapshotsTable({
 }
 
 function SnapshotRow({ row }: { row: ResearchSymbolRow }) {
+  const themes = classifySymbol(row.symbol).themes;
   return (
     <tr>
       <td>
@@ -161,6 +228,20 @@ function SnapshotRow({ row }: { row: ResearchSymbolRow }) {
           <strong>{row.symbol}</strong>
         </Link>{" "}
         <span className="muted">({row.barInterval})</span>
+        {themes.length > 0 ? (
+          <div className="theme-tags">
+            {themes.map((t) => (
+              <Link
+                key={t}
+                href={`/research?theme=${encodeURIComponent(t)}`}
+                className="theme-tag"
+                title={`Filter to ${t}`}
+              >
+                {t}
+              </Link>
+            ))}
+          </div>
+        ) : null}
       </td>
       <td className={`regime-${row.trendClass}`}>{row.trend ?? "—"}</td>
       <td className={`vol-${row.volatilityClass}`}>

@@ -2,14 +2,22 @@ import { redirect } from "next/navigation";
 
 import { ResearchDashboard } from "../../components/ResearchDashboard";
 import { loadResearchState } from "../../../lib/research";
+import { canonicalTheme } from "../../../lib/classification";
 
 // Reads live (and possibly-empty) DB state at request time, so it must never
 // be statically rendered at build — DATABASE_URL is not available during
 // `next build`.
 export const dynamic = "force-dynamic";
 
-export default async function ResearchPage() {
+export default async function ResearchPage({
+  searchParams,
+}: {
+  searchParams?: { theme?: string };
+}) {
   const state = await loadResearchState();
+  // Theme filter round-trips through the query string (JS-free). Canonicalize so
+  // a bogus ?theme=foo simply shows everything instead of an empty page.
+  const theme = canonicalTheme(searchParams?.theme);
 
   // Symbol lookup: a server action keeps this a plain server component (no client
   // JS), mirroring the /sources add-channel pattern. We sanitize to the ticker
@@ -25,5 +33,7 @@ export default async function ResearchPage() {
     redirect(`/research/${encodeURIComponent(symbol)}`);
   }
 
-  return <ResearchDashboard state={state} searchAction={searchAction} />;
+  return (
+    <ResearchDashboard state={state} searchAction={searchAction} theme={theme} />
+  );
 }
