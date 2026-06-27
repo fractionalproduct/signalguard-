@@ -37,10 +37,12 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Run on everything except static assets, the health check, and the cron
-  // endpoints (which authenticate via the CRON_SECRET Bearer header, not
-  // the session cookie).
+  // Run on everything except static assets, the health check, and the
+  // CRON_SECRET-gated API routes — the cron endpoints AND the TradingAgents
+  // ingest/queue routes (/api/ta/*) authenticate via the CRON_SECRET Bearer
+  // header, not the session cookie, so they must NOT be redirected to /login
+  // (the off-host sidecar has no session, only the token).
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/health|api/cron/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/health|api/cron/|api/ta/).*)",
   ],
 };
