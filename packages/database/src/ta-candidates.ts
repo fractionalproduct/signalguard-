@@ -21,6 +21,8 @@ export interface CreateTaCandidateInput {
   confidenceHint?: number | null;
   /** Untrusted free-text rationale. */
   thesisText?: string | null;
+  /** Plain-English summary (verdict + main reason + main risk). Display only. */
+  taSummary?: string | null;
   asOfDate: Date;
   /** TradingAgents' OWN BUY/SELL/HOLD opinion — distinct from `action` (the
    * originating intent). Conflict/display metadata only; NEVER drops a candidate. */
@@ -53,6 +55,7 @@ export async function createTaCandidate(
         action: input.action,
         confidenceHint: input.confidenceHint ?? null,
         thesisText: input.thesisText ?? null,
+        taSummary: input.taSummary ?? null,
         asOfDate: input.asOfDate,
         status: "NEW",
         taVerdict: input.taVerdict ?? null,

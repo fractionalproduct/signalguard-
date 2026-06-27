@@ -33,6 +33,8 @@ export const dynamic = "force-dynamic";
 
 /** Cap thesis free-text so a giant payload can't bloat the row / a log line. */
 const MAX_THESIS_LENGTH = 4000;
+/** Cap the plain-English summary so a giant payload can't bloat the row. */
+const MAX_TA_SUMMARY_LENGTH = 1200;
 /** Cap obviously-bounded identifier/symbol fields. */
 const MAX_AGENT_RUN_ID_LENGTH = 200;
 const MAX_SYMBOL_LENGTH = 16;
@@ -49,6 +51,7 @@ type ValidatedCandidate = {
   action: string;
   confidenceHint: number | null;
   thesisText: string | null;
+  taSummary: string | null;
   asOfDate: Date;
   taVerdict: string | null;
   consensusTally: unknown;
@@ -114,6 +117,19 @@ function validateCandidate(raw: unknown): ValidationResult {
     thesisText = obj.thesisText;
   }
 
+  // Optional taSummary: a plain-English summary (display only), capped. Stored
+  // verbatim; never parsed for control.
+  let taSummary: string | null = null;
+  if (obj.taSummary !== undefined && obj.taSummary !== null) {
+    if (typeof obj.taSummary !== "string") {
+      return { ok: false, reason: "taSummary_invalid" };
+    }
+    if (obj.taSummary.length > MAX_TA_SUMMARY_LENGTH) {
+      return { ok: false, reason: "taSummary_too_long" };
+    }
+    taSummary = obj.taSummary;
+  }
+
   // Optional asOfDate: present-but-invalid is a hard 400; absent defaults to now.
   let asOfDate = new Date();
   if (obj.asOfDate !== undefined && obj.asOfDate !== null) {
@@ -169,6 +185,7 @@ function validateCandidate(raw: unknown): ValidationResult {
       action,
       confidenceHint,
       thesisText,
+      taSummary,
       asOfDate,
       taVerdict,
       consensusTally,

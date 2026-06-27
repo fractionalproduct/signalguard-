@@ -29,6 +29,7 @@ function proposal(
     taVerdict: null,
     consensusTally: null,
     analysisReport: null,
+    taSummary: null,
     fuseVerdict: null,
     source: "DETERMINISTIC",
     expiresAt: new Date("2026-06-19T12:00:00.000Z"),

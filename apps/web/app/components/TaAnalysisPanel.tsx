@@ -39,6 +39,11 @@ export function TaAnalysisPanel({
 
   return (
     <div className="ta-analysis">
+      {/* Plain-English AI summary — at the TOP so a non-expert reads it first,
+          above the detailed collapsible cards. Untrusted model text rendered as
+          plain text (default escaping), no dangerouslySetInnerHTML. */}
+      {analysis.summary && <TaSummaryCallout summary={analysis.summary} />}
+
       {/* Phase 5: Fuse verdict badge */}
       <FuseBadge fuse={fuseVerdict} />
 
@@ -53,6 +58,19 @@ export function TaAnalysisPanel({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Prominent plain-English summary callout shown at the TOP of the panel so a
+ * non-expert reads the verdict + main reason + main risk first. The summary is
+ * UNTRUSTED model output — rendered as plain text (default escaping), never as
+ * HTML (no dangerouslySetInnerHTML). */
+function TaSummaryCallout({ summary }: { summary: string }) {
+  return (
+    <div className="ta-summary" role="note">
+      <span className="ta-summary-eyebrow">AI summary</span>
+      <p className="ta-summary-body">{summary}</p>
     </div>
   );
 }

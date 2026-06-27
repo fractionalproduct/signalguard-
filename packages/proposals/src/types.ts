@@ -34,6 +34,9 @@ export interface ProposalDraft {
   consensusTally?: unknown;
   /** The full analyst reports carried from the candidate. Display only. */
   analysisReport?: unknown;
+  /** Plain-English summary (verdict + main reason + main risk) carried from the
+   * candidate. Display only; never affects the gate, sizing, or risk engine. */
+  taSummary?: string | null;
   /** Phase 5 "Fuse" advisory label ({ tier, note }) — a subtractive
    * reconciliation of intent vs TA verdict vs consensus. Display/advisory ONLY;
    * NEVER gates, sizes, promotes, or executes anything. */
