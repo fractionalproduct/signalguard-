@@ -178,6 +178,7 @@ model OptionContract {
   updatedAt DateTime @updatedAt
 
   positions OptionPosition[]
+  proposals OptionProposal[]
 
   @@index([underlying, expiration])
 }
@@ -656,6 +657,63 @@ model TradeProposal {
   @@index([symbol, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
   @@index([source, createdAt(sort: Desc)])
+}
+
+/// A candidate LONG single-leg OPTION trade (M17 "TA → Option Proposals" slice).
+/// Mirrors TradeProposal for options: created from a TradingAgents verdict
+/// (BUY → CALL, SELL → PUT) only when the deterministic options gate
+/// (evaluateOptionEntry) returns ALLOW. Defined risk = premium paid, so
+/// `premiumAtRiskCents` IS the maximum loss. Display + approve/reject ONLY this
+/// slice — NO execution / buy-to-open (that is a deliberate later slice). The TA
+/// metadata fields (taVerdict/taSummary/consensusTally/analysisReport/fuseVerdict)
+/// are UNTRUSTED display content, never parsed for control.
+model OptionProposal {
+  id                String              @id @default(cuid())
+  /// Equity ticker the option is on, e.g. "META".
+  underlying        String
+  /// "CALL" | "PUT" — long single-leg only.
+  right             String
+  /// Canonical OCC symbol of the selected contract, e.g. "META260718C00720000".
+  occSymbol         String
+  /// Strike price in integer cents.
+  strikeCents       Int
+  /// Expiration date (the option dies at this date's market close).
+  expiration        DateTime
+  /// Entry mark/limit premium PER SHARE, in cents (the gate's mark at creation).
+  limitPremiumCents Int
+  /// Sized contract count (from evaluateOptionEntry — the authoritative gate).
+  contracts         Int
+  /// contracts × limitPremiumCents × 100 = MAX LOSS for this entry, in cents.
+  premiumAtRiskCents Int
+  /// Lifecycle reuses the equity TradeProposalStatus state machine. TA-sourced
+  /// option proposals enter PENDING_APPROVAL (the decision queue). Approve/reject
+  /// changes status ONLY this slice — no order is ever placed here.
+  status            TradeProposalStatus @default(PENDING_APPROVAL)
+  /// Provenance. "TRADING_AGENTS" — created by the ta-ingest worker.
+  source            String              @default("TRADING_AGENTS")
+  notes             String?
+  /// TradingAgents' OWN BUY/SELL/HOLD opinion carried from the candidate.
+  /// Display/conflict metadata only; NEVER affects the gate or sizing.
+  taVerdict         String?
+  /// Plain-English summary carried from the candidate. Display only.
+  taSummary         String?
+  /// The multi-LLM vote tally carried from the candidate. Display only.
+  consensusTally    Json?
+  /// The full analyst reports carried from the candidate. Display only.
+  analysisReport    Json?
+  /// Phase 5 "Fuse" advisory label. Display/advisory ONLY — never gates anything.
+  fuseVerdict       Json?
+  expiresAt         DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  /// Optional link to the upserted OptionContract row (occSymbol is the natural
+  /// key; this relation lets the detail view join contract metadata if needed).
+  optionContractId  String?
+  optionContract    OptionContract?     @relation(fields: [optionContractId], references: [id])
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([underlying, createdAt(sort: Desc)])
 }
 
 /// M12 paper order lifecycle state. Mirrors OrderState in @signalguard/orders —

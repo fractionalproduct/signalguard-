@@ -28,3 +28,28 @@ export function classifyCandidate(
   }
   return { decision: "INGEST" };
 }
+
+/**
+ * Pure routing for the "TA → Option Proposals" slice: map a TradingAgents
+ * verdict to an option direction. This is ADDITIVE to the equity path and is
+ * gated SEPARATELY from classifyCandidate (which decides the EQUITY drop on
+ * `action`). It runs only for on-watchlist candidates (the route enforces the
+ * watchlist check before calling this).
+ *
+ *   BUY  → CALL   (long upside)
+ *   SELL → PUT    (long downside — equity still drops as today)
+ *   HOLD / anything else → null (no option proposal)
+ *
+ * The verdict is the candidate's `taVerdict`, falling back to its `action` when
+ * the verdict is absent. No I/O, no side effects — the route does the gate +
+ * persist + audit.
+ */
+export function optionDirectionFor(
+  taVerdict: string | null | undefined,
+  action: string | null | undefined,
+): "CALL" | "PUT" | null {
+  const v = (taVerdict ?? action ?? "").toUpperCase();
+  if (v === "BUY") return "CALL";
+  if (v === "SELL") return "PUT";
+  return null;
+}

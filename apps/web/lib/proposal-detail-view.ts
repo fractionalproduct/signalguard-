@@ -181,11 +181,21 @@ export function buildFuseVerdict(raw: unknown): FuseVerdictView | null {
   return { tier, note };
 }
 
-/** Normalize the proposal's TradingAgents fields into a display view, or null
+/** The structural subset of TA fields buildTaAnalysis reads. Both TradeProposal
+ * and OptionProposal satisfy this, so the option detail view reuses the SAME
+ * builder with zero duplication. */
+export interface TaAnalysisFields {
+  analysisReport: unknown;
+  consensusTally: unknown;
+  taVerdict: string | null;
+  taSummary: string | null;
+}
+
+/** Normalize a proposal's TradingAgents fields into a display view, or null
  * when none are present. Every field is untrusted free-form JSON (Prisma
  * `Json?`), so — like `summarizeMetadata` — every access is guarded and never
  * parsed for control. */
-export function buildTaAnalysis(proposal: TradeProposal): TaAnalysisView | null {
+export function buildTaAnalysis(proposal: TaAnalysisFields): TaAnalysisView | null {
   const sections = buildTaSections(proposal.analysisReport);
   const consensus = buildTaConsensus(proposal.consensusTally);
   const verdict =
