@@ -94,6 +94,8 @@
     "lib/option-execution.ts",
     "lib/option-execution.test.ts",
     "lib/assistant.ts",
-    "lib/assistant.test.ts"
+    "lib/assistant.test.ts",
+    "lib/classification.ts",
+    "lib/classification.test.ts"
   ]
 }
