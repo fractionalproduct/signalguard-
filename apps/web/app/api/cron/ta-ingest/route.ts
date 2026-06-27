@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { createAlpacaMarketDataFromEnv } from "@signalguard/alpaca-market-data";
+import {
+  createAlpacaMarketDataFromEnv,
+  createAlpacaOptionsDataFromEnv,
+} from "@signalguard/alpaca-market-data";
 import { recordAuditEvent } from "@signalguard/audit";
 import {
   getDb,
@@ -8,7 +11,8 @@ import {
 } from "@signalguard/database";
 import { isAuthorizedCronRequest } from "../../../../lib/cron-auth";
 import { generateAndPersistProposal } from "../../../../lib/proposal-generation";
-import { classifyCandidate } from "../../../../lib/ta-ingest";
+import { generateAndPersistOptionProposal } from "../../../../lib/option-proposal-generation";
+import { classifyCandidate, optionDirectionFor } from "../../../../lib/ta-ingest";
 
 /**
  * TradingAgents ta-ingest worker (integration slice 1), as a Vercel Cron route.
@@ -49,6 +53,10 @@ export async function GET(req: Request): Promise<Response> {
   if (!marketData) {
     return NextResponse.json({ ok: true, reason: "market_data_not_configured" });
   }
+  // Options read client (chain + per-option quotes). Null when creds aren't
+  // configured -> we simply skip the ADDITIVE option-proposal path; the equity
+  // path is unaffected. Reuses the same Alpaca creds as the equity client.
+  const optionsData = createAlpacaOptionsDataFromEnv();
 
   const watchlist = (process.env.WATCHLIST_SYMBOLS ?? "")
     .split(",")
@@ -61,87 +69,165 @@ export async function GET(req: Request): Promise<Response> {
   let processed = 0;
   let ingested = 0;
   let dropped = 0;
+  let optionsIngested = 0;
 
   for (const candidate of candidates.slice(0, MAX_PER_TICK)) {
     processed += 1;
 
-    const verdict = classifyCandidate(
-      { symbol: candidate.symbol, action: candidate.action },
-      watchlist,
+    // Off-watchlist nominations are dropped before any scan — the containment
+    // gate. classifyCandidate decides the EQUITY drop on `action`.
+    const onWatchlist = watchlist.some(
+      (w) => w.toUpperCase() === candidate.symbol.toUpperCase(),
     );
-
-    if (verdict.decision === "DROP") {
-      const reason = verdict.reason ?? "off_watchlist";
-      await setTaCandidateStatus(db, candidate.id, "DROPPED", reason);
+    if (!onWatchlist) {
+      await setTaCandidateStatus(db, candidate.id, "DROPPED", "off_watchlist");
       await recordAuditEvent({
         type: "tradingagents.dropped",
         source: "trading-worker",
-        metadata: { candidateId: candidate.id, symbol: candidate.symbol, reason },
+        metadata: {
+          candidateId: candidate.id,
+          symbol: candidate.symbol,
+          reason: "off_watchlist",
+        },
       });
       dropped += 1;
       continue;
     }
 
-    // Recover the canonical watchlist casing so the persisted proposal.symbol
-    // matches the deterministic path (a lowercase candidate must not store a
-    // divergent symbol). classifyCandidate already proved a match exists.
+    // Recover the canonical watchlist casing so persisted rows match the
+    // deterministic path (a lowercase candidate must not store a divergent
+    // symbol). The watchlist match above proves one exists.
     const canonicalSymbol =
       watchlist.find((w) => w.toUpperCase() === candidate.symbol.toUpperCase()) ??
       candidate.symbol;
 
-    // Per-candidate isolation: a scan failure or throw is recorded against THIS
-    // candidate; the loop continues with the next.
-    try {
-      const { created } = await generateAndPersistProposal(
-        db,
-        marketData,
-        canonicalSymbol,
-        {
-          source: "TRADING_AGENTS",
-          notes: candidate.thesisText,
-          // Carry the verdict + consensus + reports onto the proposal as
-          // display/conflict metadata. The drop logic above is unchanged.
-          taVerdict: candidate.taVerdict,
-          consensusTally: candidate.consensusTally,
-          analysisReport: candidate.analysisReport,
-        },
-      );
-      if (created) {
-        await setTaCandidateStatus(db, candidate.id, "INGESTED");
+    // --- EQUITY path (UNCHANGED from before): only BUY survives. SELL/HOLD are
+    //     dropped "not_buy" for equities, exactly as today. ---
+    const verdict = classifyCandidate(
+      { symbol: candidate.symbol, action: candidate.action },
+      watchlist,
+    );
+    let equityCreated = false;
+    if (verdict.decision === "INGEST") {
+      try {
+        const { created } = await generateAndPersistProposal(
+          db,
+          marketData,
+          canonicalSymbol,
+          {
+            source: "TRADING_AGENTS",
+            notes: candidate.thesisText,
+            taVerdict: candidate.taVerdict,
+            consensusTally: candidate.consensusTally,
+            analysisReport: candidate.analysisReport,
+            taSummary: candidate.taSummary,
+          },
+        );
+        equityCreated = created;
         await recordAuditEvent({
-          type: "tradingagents.ingested",
+          type: created ? "tradingagents.ingested" : "tradingagents.dropped",
           source: "trading-worker",
-          metadata: { candidateId: candidate.id, symbol: canonicalSymbol },
+          metadata: created
+            ? { candidateId: candidate.id, symbol: canonicalSymbol }
+            : {
+                candidateId: candidate.id,
+                symbol: canonicalSymbol,
+                reason: "scan_failed",
+              },
         });
-        ingested += 1;
-      } else {
-        await setTaCandidateStatus(db, candidate.id, "DROPPED", "scan_failed");
+      } catch (err) {
+        console.error("[cron/ta-ingest] equity candidate failed", candidate.id, err);
         await recordAuditEvent({
-          type: "tradingagents.dropped",
+          type: "tradingagents.error",
           source: "trading-worker",
           metadata: {
             candidateId: candidate.id,
-            symbol: canonicalSymbol,
-            reason: "scan_failed",
+            symbol: candidate.symbol,
+            error: err instanceof Error ? err.message : String(err),
           },
         });
-        dropped += 1;
       }
-    } catch (err) {
-      console.error("[cron/ta-ingest] candidate failed", candidate.id, err);
-      await setTaCandidateStatus(db, candidate.id, "DROPPED", "error");
-      await recordAuditEvent({
-        type: "tradingagents.error",
-        source: "trading-worker",
-        metadata: {
-          candidateId: candidate.id,
-          symbol: candidate.symbol,
-          error: err instanceof Error ? err.message : String(err),
-        },
-      });
+    }
+
+    // --- OPTION path (ADDITIVE): BUY → CALL, SELL → PUT, HOLD → nothing. Runs
+    //     for any on-watchlist candidate, INDEPENDENT of the equity drop above.
+    //     Fully isolated (its own try/catch + the generator never throws) so an
+    //     option failure can't abort the batch or affect the equity path. ---
+    let optionCreated = false;
+    const direction = optionDirectionFor(candidate.taVerdict, candidate.action);
+    if (direction && optionsData) {
+      try {
+        const result = await generateAndPersistOptionProposal(
+          db,
+          marketData,
+          optionsData,
+          canonicalSymbol,
+          direction,
+          {
+            source: "TRADING_AGENTS",
+            notes: candidate.thesisText,
+            taVerdict: candidate.taVerdict,
+            taSummary: candidate.taSummary,
+            consensusTally: candidate.consensusTally,
+            analysisReport: candidate.analysisReport,
+          },
+        );
+        optionCreated = result.created;
+        await recordAuditEvent({
+          type: result.created
+            ? "tradingagents.option_ingested"
+            : "tradingagents.option_dropped",
+          source: "trading-worker",
+          metadata: result.created
+            ? {
+                candidateId: candidate.id,
+                symbol: canonicalSymbol,
+                right: direction,
+                proposalId: result.id,
+              }
+            : {
+                candidateId: candidate.id,
+                symbol: canonicalSymbol,
+                right: direction,
+                reason: result.reason ?? "not_created",
+              },
+        });
+        if (result.created) optionsIngested += 1;
+      } catch (err) {
+        // Defensive belt-and-suspenders: the generator already swallows errors.
+        console.error("[cron/ta-ingest] option candidate failed", candidate.id, err);
+        await recordAuditEvent({
+          type: "tradingagents.option_dropped",
+          source: "trading-worker",
+          metadata: {
+            candidateId: candidate.id,
+            symbol: candidate.symbol,
+            right: direction,
+            reason: "error",
+          },
+        }).catch(() => {});
+      }
+    }
+
+    // Candidate status: INGESTED when EITHER an equity or an option proposal was
+    // created; otherwise DROPPED. A SELL that produced a PUT is INGESTED, not
+    // left "DROPPED not_buy".
+    if (equityCreated || optionCreated) {
+      await setTaCandidateStatus(db, candidate.id, "INGESTED");
+      ingested += 1;
+    } else {
+      const reason =
+        verdict.decision === "DROP" ? (verdict.reason ?? "not_buy") : "scan_failed";
+      await setTaCandidateStatus(db, candidate.id, "DROPPED", reason);
       dropped += 1;
     }
   }
 
-  return NextResponse.json({ ok: true, processed, ingested, dropped });
+  return NextResponse.json({
+    ok: true,
+    processed,
+    ingested,
+    dropped,
+    optionsIngested,
+  });
 }

@@ -214,18 +214,22 @@ def build_graph(provider: str):
     """
     # Import inside the function: TradingAgents is only present on the sidecar.
     from tradingagents.graph.trading_graph import TradingAgentsGraph  # type: ignore
+    from tradingagents.default_config import DEFAULT_CONFIG  # type: ignore
 
-    # Real config keys (default_config defaults: openai / gpt-5.5 / gpt-5.4-mini).
-    # Models are env-overridable so non-OpenAI providers (or a local Ollama via
-    # TA_BACKEND_URL) can set appropriate model ids. Keep the debate loop tight to
-    # bound LLM cost (the host MUST also enforce a hard billing cap).
-    config = {
-        "llm_provider": provider,
-        "max_debate_rounds": int(os.environ.get("TA_MAX_DEBATE_ROUNDS", "1")),
-        "max_risk_discuss_rounds": 1,
-        # max_recur_limit defaults to 100 — lower it to bound runaway recursion.
-        "max_recur_limit": int(os.environ.get("TA_MAX_RECUR_LIMIT", "30")),
-    }
+    # Start from the FULL DEFAULT_CONFIG and override — TradingAgentsGraph reads
+    # required keys (data_cache_dir, results_dir, memory_log_path) DIRECTLY and
+    # does NOT merge a partial config, so a bare dict raises KeyError on build.
+    # Those paths default under ~/.tradingagents — the container's only writable
+    # mount (tmpfs) — so cache/logs/memory write fine under the read-only root FS.
+    # Models are env-overridable so non-OpenAI providers (or local Ollama via
+    # TA_BACKEND_URL) can set appropriate ids. Keep the debate loop tight to bound
+    # LLM cost (the host MUST also enforce a hard billing cap).
+    config = DEFAULT_CONFIG.copy()
+    config["llm_provider"] = provider
+    config["max_debate_rounds"] = int(os.environ.get("TA_MAX_DEBATE_ROUNDS", "1"))
+    config["max_risk_discuss_rounds"] = 1
+    # max_recur_limit defaults to 100 — lower it to bound runaway recursion.
+    config["max_recur_limit"] = int(os.environ.get("TA_MAX_RECUR_LIMIT", "30"))
     deep = os.environ.get("TA_DEEP_LLM", "").strip()
     quick = os.environ.get("TA_QUICK_LLM", "").strip()
     backend = os.environ.get("TA_BACKEND_URL", "").strip()
@@ -358,6 +362,67 @@ def compute_consensus(report: dict | None, symbol: str, date: str) -> dict | Non
         return None
 
 
+# Caps for the plain-English summary. Input to the LLM is capped well under the
+# consensus blob budget; the output is capped under the server's 1200-char cap so
+# the candidate can never be rejected as taSummary_too_long.
+MAX_SUMMARY_INPUT = 6000
+MAX_SUMMARY_OUTPUT = 1000
+
+_SUMMARY_SYSTEM = (
+    "You write a short, plain-English summary of a stock analysis for a "
+    "non-expert reader. No jargon. Be concise and decisive."
+)
+_SUMMARY_PROMPT = (
+    "In 2-4 plain-English sentences for a non-expert, summarize this stock "
+    "analysis: the call (buy/hold/sell) and why, plus the single biggest risk. "
+    "No jargon. Reports:\n{reports}"
+)
+
+
+def build_summary(final_state: object, symbol: str, config: dict) -> str | None:
+    """One cheap LLM call → a 2-4 sentence plain-English summary, or None.
+
+    Reuses TradingAgents' own LLM client on the SAME Western backbone the run
+    used (config["provider"], allowlist-validated in read_config) with the QUICK
+    model (env TA_QUICK_LLM, default "claude-haiku-4-5"). Display-only content;
+    SignalGuard renders it as plain text and never parses it.
+
+    Defensive by construction: gated on a present provider key (like the
+    consensus panel), input/output capped, and wrapped in try/except so any
+    failure returns None and NEVER crashes the run.
+    """
+    try:
+        from tradingagents.llm_clients import create_llm_client  # type: ignore
+        from tradingagents.llm_clients.api_key_env import get_api_key_env  # type: ignore
+        from langchain_core.messages import HumanMessage, SystemMessage  # type: ignore
+
+        provider = config["provider"]
+        # Gate like the consensus panel: only attempt when the backbone key is
+        # present (always true in normal operation, since the backbone runs).
+        env = get_api_key_env(provider)
+        if not env or not os.environ.get(env):
+            return None
+
+        report = build_analysis_report(final_state)
+        blob = build_reports_blob(report)
+        if not blob:
+            return None
+        blob = blob[:MAX_SUMMARY_INPUT]
+
+        model = os.environ.get("TA_QUICK_LLM", "").strip() or "claude-haiku-4-5"
+        llm = create_llm_client(provider=provider, model=model).get_llm()
+        resp = llm.invoke([
+            SystemMessage(content=_SUMMARY_SYSTEM),
+            HumanMessage(content=_SUMMARY_PROMPT.format(reports=blob)),
+        ])
+        text = resp.content if isinstance(resp.content, str) else str(resp.content)
+        text = text.strip()
+        return text[:MAX_SUMMARY_OUTPUT] if text else None
+    except Exception as exc:  # noqa: BLE001 — display-only; never crash the run
+        print(f"[emit] summary skipped ({exc})", file=sys.stderr)
+        return None
+
+
 def post_candidate(ingest_url: str, ingest_token: str, payload: dict) -> bool:
     """POST one candidate. Returns True on a 2xx. Never raises to the caller."""
     body = json.dumps(payload).encode("utf-8")
@@ -452,6 +517,7 @@ def run() -> int:
             thesis = extract_thesis(final_state)
             report = build_analysis_report(final_state)
             consensus = compute_consensus(report, symbol, today)
+            summary = build_summary(final_state, symbol, config)
 
             # D4-B core semantic:
             #  - queue mode: `action` is SignalGuard's discovery intent (from the
@@ -473,6 +539,9 @@ def run() -> int:
                 # left null (the scanner ignores it for sizing regardless).
                 "confidenceHint": None,
                 "thesisText": thesis,
+                # Plain-English summary (display only) generated by build_summary;
+                # None when unavailable (no key / no reports / LLM failure).
+                "taSummary": summary,
                 # Untrusted DISPLAY content (full analyst reports) + advisory
                 # consensus tally. Omitted (None) when unavailable.
                 "analysisReport": report,

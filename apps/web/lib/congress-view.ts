@@ -8,6 +8,102 @@
  * unit-testable (no locale, no wall-clock).
  */
 
+/**
+ * A validated filed-date filter for the inbox. `from`/`to` are inclusive UTC
+ * bounds (start- and end-of-day respectively); the raw `*Input` strings are
+ * echoed back into the form so the date fields stay populated. `error` is set
+ * (and both bounds left undefined) when the inputs are malformed — fail-open to
+ * "no filter" rather than silently dropping rows.
+ */
+export interface DisclosureDateRange {
+  from?: Date;
+  to?: Date;
+  fromInput: string;
+  toInput: string;
+  error?: string;
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Parse a YYYY-MM-DD string as a UTC instant, or null if malformed or not a
+ * real calendar date (e.g. 2026-02-31). `endOfDay` picks 23:59:59.999 (for an
+ * inclusive upper bound) vs. 00:00:00.000.
+ */
+function parseUtcDate(value: string, endOfDay: boolean): Date | null {
+  if (!ISO_DATE.test(value)) return null;
+  const [y, m, d] = value.split("-").map(Number);
+  const ms = endOfDay
+    ? Date.UTC(y, m - 1, d, 23, 59, 59, 999)
+    : Date.UTC(y, m - 1, d, 0, 0, 0, 0);
+  const date = new Date(ms);
+  // Reject overflow (Date.UTC rolls 2026-02-31 into March).
+  if (
+    date.getUTCFullYear() !== y ||
+    date.getUTCMonth() !== m - 1 ||
+    date.getUTCDate() !== d
+  ) {
+    return null;
+  }
+  return date;
+}
+
+/**
+ * Validate raw `from`/`to` query-string values into a DisclosureDateRange. Pure
+ * and deterministic (UTC only, no wall-clock, no locale). On any problem
+ * (bad format, impossible date, from-after-to) it returns no bounds plus a
+ * human-readable `error`, so a typo widens to "show everything" instead of
+ * hiding data.
+ */
+export function parseDisclosureDateRange(params: {
+  from?: string;
+  to?: string;
+}): DisclosureDateRange {
+  const fromInput = (params.from ?? "").trim();
+  const toInput = (params.to ?? "").trim();
+  const range: DisclosureDateRange = { fromInput, toInput };
+
+  let from: Date | undefined;
+  let to: Date | undefined;
+  if (fromInput) {
+    const parsed = parseUtcDate(fromInput, false);
+    if (!parsed) {
+      return { ...range, error: "“From” must be a real date in YYYY-MM-DD form." };
+    }
+    from = parsed;
+  }
+  if (toInput) {
+    const parsed = parseUtcDate(toInput, true);
+    if (!parsed) {
+      return { ...range, error: "“To” must be a real date in YYYY-MM-DD form." };
+    }
+    to = parsed;
+  }
+  if (from && to && from.getTime() > to.getTime()) {
+    return { ...range, error: "“From” date is after the “To” date." };
+  }
+  return { ...range, from, to };
+}
+
+/**
+ * Pure in-memory filter by filedDate against a (validated) range. Used for the
+ * mock-mode fixture; the live DB path applies the same bounds as a where clause.
+ */
+export function filterDisclosuresByFiledDate(
+  records: readonly DisclosureRecord[],
+  range: DisclosureDateRange,
+): DisclosureRecord[] {
+  if (!range.from && !range.to) return [...records];
+  const fromMs = range.from?.getTime();
+  const toMs = range.to?.getTime();
+  return records.filter((r) => {
+    const t = r.filedDate.getTime();
+    if (fromMs !== undefined && t < fromMs) return false;
+    if (toMs !== undefined && t > toMs) return false;
+    return true;
+  });
+}
+
 /** A disclosure as the loader hands it to the view (provider-neutral). */
 export interface DisclosureRecord {
   id: string;

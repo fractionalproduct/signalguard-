@@ -44,6 +44,7 @@ export async function createProposal(
       // the decision queue. Every downstream gate still runs regardless.
       status: draft.status ?? "DRAFT",
       taVerdict: draft.taVerdict ?? null,
+      taSummary: draft.taSummary ?? null,
       // Json columns: absent -> explicit JSON null (Prisma.JsonNull); a plain
       // `null` is rejected by the generated input types for nullable Json fields.
       consensusTally:

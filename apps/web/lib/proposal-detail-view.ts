@@ -57,6 +57,10 @@ export interface TaConsensusView {
 export interface TaAnalysisView {
   /** TradingAgents' own BUY/SELL/HOLD verdict, or null. */
   verdict: string | null;
+  /** Plain-English 2-4 sentence summary (verdict + main reason + main risk),
+   * or null. Rendered at the TOP of the panel as a prominent callout; untrusted
+   * model text, rendered as plain text only. */
+  summary: string | null;
   /** Present analyst report sections, in the fixed display order. */
   sections: ReadonlyArray<TaReportSection>;
   /** The consensus tally, or null when absent/malformed. */
@@ -177,23 +181,39 @@ export function buildFuseVerdict(raw: unknown): FuseVerdictView | null {
   return { tier, note };
 }
 
-/** Normalize the proposal's TradingAgents fields into a display view, or null
+/** The structural subset of TA fields buildTaAnalysis reads. Both TradeProposal
+ * and OptionProposal satisfy this, so the option detail view reuses the SAME
+ * builder with zero duplication. */
+export interface TaAnalysisFields {
+  analysisReport: unknown;
+  consensusTally: unknown;
+  taVerdict: string | null;
+  taSummary: string | null;
+}
+
+/** Normalize a proposal's TradingAgents fields into a display view, or null
  * when none are present. Every field is untrusted free-form JSON (Prisma
  * `Json?`), so — like `summarizeMetadata` — every access is guarded and never
  * parsed for control. */
-export function buildTaAnalysis(proposal: TradeProposal): TaAnalysisView | null {
+export function buildTaAnalysis(proposal: TaAnalysisFields): TaAnalysisView | null {
   const sections = buildTaSections(proposal.analysisReport);
   const consensus = buildTaConsensus(proposal.consensusTally);
   const verdict =
     typeof proposal.taVerdict === "string" && proposal.taVerdict.length > 0
       ? proposal.taVerdict
       : null;
+  const summary =
+    typeof proposal.taSummary === "string" && proposal.taSummary.length > 0
+      ? proposal.taSummary
+      : null;
 
   // Nothing to show: omit the whole panel. taVerdict alone is metadata that the
   // panel only renders alongside the consensus, so it doesn't keep the panel open.
+  // (In practice the sidecar emits the summary alongside analysisReport, so a
+  // summary-without-reports proposal doesn't occur.)
   if (sections.length === 0 && consensus === null) return null;
 
-  return { verdict, sections, consensus };
+  return { verdict, summary, sections, consensus };
 }
 
 function buildTaSections(report: unknown): ReadonlyArray<TaReportSection> {

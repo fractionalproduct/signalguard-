@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { classifyCandidate } from "./ta-ingest";
+import { classifyCandidate, optionDirectionFor } from "./ta-ingest";
 
 const WATCHLIST = ["NVDA", "MSFT", "AAPL"];
 
@@ -71,4 +71,38 @@ test("taVerdict never causes a drop (BUY + taVerdict SELL is still ingested)", (
     classifyCandidate({ symbol: "NVDA", action: "BUY", taVerdict: "SELL" }, WATCHLIST),
     { decision: "INGEST" },
   );
+});
+
+// --- optionDirectionFor: the ADDITIVE option-routing helper (BUY→CALL,
+//     SELL→PUT, HOLD→none). Keyed on taVerdict, falling back to action. ---
+
+test("optionDirectionFor: BUY verdict → CALL", () => {
+  assert.equal(optionDirectionFor("BUY", "BUY"), "CALL");
+});
+
+test("optionDirectionFor: SELL verdict → PUT (equity still drops separately)", () => {
+  assert.equal(optionDirectionFor("SELL", "SELL"), "PUT");
+});
+
+test("optionDirectionFor: HOLD → null (no option)", () => {
+  assert.equal(optionDirectionFor("HOLD", "HOLD"), null);
+});
+
+test("optionDirectionFor: verdict wins over action (action BUY, verdict SELL → PUT)", () => {
+  assert.equal(optionDirectionFor("SELL", "BUY"), "PUT");
+});
+
+test("optionDirectionFor: falls back to action when verdict is absent", () => {
+  assert.equal(optionDirectionFor(null, "SELL"), "PUT");
+  assert.equal(optionDirectionFor(undefined, "BUY"), "CALL");
+});
+
+test("optionDirectionFor: case-insensitive", () => {
+  assert.equal(optionDirectionFor("buy", null), "CALL");
+  assert.equal(optionDirectionFor("sell", null), "PUT");
+});
+
+test("optionDirectionFor: nothing usable → null", () => {
+  assert.equal(optionDirectionFor(null, null), null);
+  assert.equal(optionDirectionFor("", ""), null);
 });
