@@ -52,15 +52,17 @@ export function AssistantChat() {
       <h1>Assistant</h1>
       <p className="lead">
         Ask about your paper portfolio, a symbol&apos;s latest analysis, or
-        what&apos;s in the proposal queue. The assistant reads your data — it
-        can&apos;t place or change trades.
+        what&apos;s in the proposal queue — and ask it to draft a trade. Drafts
+        land in your queue as proposals you approve; the assistant never
+        approves or executes anything itself.
       </p>
 
       <div className="assistant-thread" role="log" aria-live="polite">
         {turns.length === 0 ? (
           <div className="empty-state" role="status">
             Try: &ldquo;How is my portfolio doing?&rdquo;, &ldquo;How does AAPL
-            look?&rdquo;, or &ldquo;What&apos;s in the proposal queue?&rdquo;
+            look?&rdquo;, &ldquo;What&apos;s in the proposal queue?&rdquo;, or
+            &ldquo;Draft a trade for AAPL.&rdquo;
           </div>
         ) : (
           turns.map((turn, i) => (

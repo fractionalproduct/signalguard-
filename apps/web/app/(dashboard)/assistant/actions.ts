@@ -1,9 +1,14 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+import { createAlpacaMarketDataFromEnv } from "@signalguard/alpaca-market-data";
+import { recordAuditEvent } from "@signalguard/audit";
+import { getDb } from "@signalguard/database";
 import { getCurrentOwner } from "../../../lib/session";
 import { loadPortfolioState } from "../../../lib/portfolio";
 import { loadProposalsState } from "../../../lib/proposals";
 import { loadResearchSymbolState } from "../../../lib/research-symbol";
+import { generateAndPersistProposal } from "../../../lib/proposal-generation";
 import {
   MAX_TOOL_ROUNDS,
   buildAssistantRequest,
@@ -14,17 +19,20 @@ import {
 } from "../../../lib/assistant";
 
 /**
- * Server action behind the owner chat assistant — Slice 1 (READ-ONLY Q&A).
+ * Server action behind the owner chat assistant.
  *
- * Runs the Messages-API tool-use loop against the read-only tools defined in
+ * Runs the Messages-API tool-use loop against the tools defined in
  * lib/assistant.ts. The pure request/response logic is unit-tested there; this
  * file is the I/O around it: auth gate, the provider call, and dispatching tool
- * calls to the existing dashboard loaders.
+ * calls to the existing loaders / proposal-generation core.
  *
- * SAFETY: every tool here only READS. There is no execution client, no order
- * submission, and no proposal mutation in this file — by construction the
- * assistant cannot move money. (Slice 2's propose_trade tool will create a
- * PENDING_APPROVAL proposal only; it will still never execute.)
+ * SAFETY: there is no execution client and no order submission anywhere in this
+ * file. The read tools only read. The one write tool, propose_trade, runs the
+ * SAME analysis-gate pipeline as the deterministic "Generate" button
+ * (generateAndPersistProposal) and persists a DRAFT proposal — which is
+ * owner-approvable but NOT in autopilot's selection set (autopilot lists only
+ * PENDING_APPROVAL). So an assistant-drafted trade can never auto-approve or
+ * auto-execute; approval is always an explicit owner act on /proposals.
  */
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
@@ -94,7 +102,9 @@ export async function askAssistant(
         const toolUses = (data.content ?? []).filter(
           (b): b is ToolUseBlock => b.type === "tool_use",
         );
-        const results = await Promise.all(toolUses.map((b) => runReadTool(b)));
+        const results = await Promise.all(
+          toolUses.map((b) => runTool(b, owner.id)),
+        );
         messages.push({ role: "user", content: results });
         continue;
       }
@@ -126,11 +136,12 @@ interface ToolResult {
 }
 
 /**
- * Dispatch ONE read-only tool call to the matching dashboard loader and return
- * its state as a JSON tool_result. Every branch is read-only; an unknown tool
- * is returned as an error block (never throws into the loop).
+ * Dispatch ONE tool call and return its result as a JSON tool_result. The read
+ * tools wrap dashboard loaders; propose_trade runs the analysis-gate pipeline
+ * and persists a DRAFT proposal (no execution). An unknown tool or thrown error
+ * is returned as an error block — never thrown into the loop.
  */
-async function runReadTool(block: ToolUseBlock): Promise<ToolResult> {
+async function runTool(block: ToolUseBlock, ownerId: string): Promise<ToolResult> {
   try {
     switch (block.name) {
       case "get_portfolio": {
@@ -142,17 +153,84 @@ async function runReadTool(block: ToolUseBlock): Promise<ToolResult> {
         return ok(block.id, state);
       }
       case "get_research": {
-        const symbol = String(block.input?.symbol ?? "").trim();
+        const symbol = normalizeSymbol(block.input?.symbol);
         if (!symbol) return err(block.id, "Missing required 'symbol'.");
         const state = await loadResearchSymbolState(symbol);
         return ok(block.id, state);
       }
+      case "propose_trade":
+        return await proposeTrade(block, ownerId);
       default:
         return err(block.id, `Unknown tool: ${block.name}`);
     }
   } catch (e) {
     return err(block.id, `Tool failed: ${e instanceof Error ? e.message : String(e)}`);
   }
+}
+
+/**
+ * propose_trade: run the SAME pipeline as the deterministic "Generate" button
+ * (fresh snapshot + Alpaca bars -> M9 scanner -> persist) and create a DRAFT
+ * proposal tagged source "ASSISTANT". DRAFT is owner-approvable but invisible to
+ * autopilot, so this can never auto-execute. The tool_result distinguishes
+ * created vs declined so the model reports the truth, not "queued" on a decline.
+ */
+async function proposeTrade(
+  block: ToolUseBlock,
+  ownerId: string,
+): Promise<ToolResult> {
+  const symbol = normalizeSymbol(block.input?.symbol);
+  if (!symbol) return err(block.id, "Missing required 'symbol'.");
+
+  const marketData = createAlpacaMarketDataFromEnv();
+  if (!marketData) {
+    return ok(block.id, {
+      created: false,
+      symbol,
+      reason: "market_data_not_configured",
+      message: "Market data isn't configured, so I can't draft a proposal.",
+    });
+  }
+
+  const db = getDb();
+  const { created } = await generateAndPersistProposal(db, marketData, symbol, {
+    source: "ASSISTANT",
+    notes: "Drafted via the assistant on the owner's request.",
+  });
+
+  await recordAuditEvent({
+    type: "proposal.generated",
+    source: "web",
+    ownerId,
+    metadata: { symbol, source: "ASSISTANT", created, via: "assistant" },
+  });
+
+  if (created) {
+    revalidatePath("/proposals");
+    return ok(block.id, {
+      created: true,
+      symbol,
+      status: "DRAFT",
+      message:
+        "Added a DRAFT proposal to the queue. The owner approves it on the Proposals page; nothing trades until then.",
+    });
+  }
+
+  return ok(block.id, {
+    created: false,
+    symbol,
+    reason: "gate_declined",
+    message:
+      "The analysis gate declined (insufficient price history or the setup didn't pass) — no proposal was created.",
+  });
+}
+
+/** Uppercased ticker, restricted to the ticker charset; "" if empty/invalid. */
+function normalizeSymbol(raw: unknown): string {
+  return String(raw ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9.\-]/g, "");
 }
 
 function ok(toolUseId: string, value: unknown): ToolResult {
