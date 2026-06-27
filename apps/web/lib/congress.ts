@@ -11,6 +11,8 @@ import { getDb } from "@signalguard/database";
 
 import {
   buildDisclosuresView,
+  filterDisclosuresByFiledDate,
+  type DisclosureDateRange,
   type DisclosureRecord,
   type DisclosuresView,
 } from "./congress-view";
@@ -29,17 +31,25 @@ const DISCLOSURE_LIMIT = 100;
  * Load recent disclosures for the inbox. Never throws: a missing DATABASE_URL
  * maps to not-configured and any query failure maps to a renderable error state.
  */
+const NO_RANGE: DisclosureDateRange = { fromInput: "", toInput: "" };
+
 export async function loadCongressState(
-  query: () => Promise<DisclosureRecord[]> = defaultQuery,
+  range: DisclosureDateRange = NO_RANGE,
+  query: (range: DisclosureDateRange) => Promise<DisclosureRecord[]> = defaultQuery,
 ): Promise<CongressState> {
   if (isMockMode()) {
-    return { status: "ok", view: buildDisclosuresView(MOCK_DISCLOSURES) };
+    return {
+      status: "ok",
+      view: buildDisclosuresView(
+        filterDisclosuresByFiledDate(MOCK_DISCLOSURES, range),
+      ),
+    };
   }
   if (!process.env.DATABASE_URL) {
     return { status: "not-configured" };
   }
   try {
-    const records = await query();
+    const records = await query(range);
     return { status: "ok", view: buildDisclosuresView(records) };
   } catch (err) {
     return {
@@ -49,8 +59,22 @@ export async function loadCongressState(
   }
 }
 
-async function defaultQuery(): Promise<DisclosureRecord[]> {
+/**
+ * Translate the validated range into a Prisma filedDate where-clause. An empty
+ * range (or one with only an error) filters nothing.
+ */
+function filedDateWhere(range: DisclosureDateRange) {
+  const filedDate: { gte?: Date; lte?: Date } = {};
+  if (range.from) filedDate.gte = range.from;
+  if (range.to) filedDate.lte = range.to;
+  return "gte" in filedDate || "lte" in filedDate ? { filedDate } : {};
+}
+
+async function defaultQuery(
+  range: DisclosureDateRange,
+): Promise<DisclosureRecord[]> {
   const rows = await getDb().congressionalDisclosure.findMany({
+    where: filedDateWhere(range),
     orderBy: { filedDate: "desc" },
     take: DISCLOSURE_LIMIT,
     select: {

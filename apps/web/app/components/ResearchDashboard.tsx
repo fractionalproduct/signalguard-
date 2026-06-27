@@ -6,16 +6,68 @@ import type {
 } from "../../lib/research-view";
 
 /**
- * Presentational M7 research dashboard. Renders one of the explicit states
- * from loadResearchState(): empty (no snapshots yet), error (DB or schema
- * problem), or ok (a per-symbol latest-snapshot table). No interactivity —
- * this milestone is read-only.
+ * Presentational M7 research dashboard. Renders a symbol-lookup search bar plus
+ * one of the explicit states from loadResearchState(): empty (no snapshots yet),
+ * error (DB or schema problem), or ok (a per-symbol latest-snapshot table). The
+ * snapshot table itself is read-only; the search bar navigates into the
+ * /research/[symbol] drill-down (which works even with no watchlist snapshots).
  */
-export function ResearchDashboard({ state }: { state: ResearchState }) {
-  if (state.status === "empty") return <EmptyCard />;
-  if (state.status === "error")
-    return <ErrorCard message={state.message} />;
-  return <ResearchOk view={state.view} />;
+export function ResearchDashboard({
+  state,
+  searchAction,
+}: {
+  state: ResearchState;
+  searchAction?: (formData: FormData) => void | Promise<void>;
+}) {
+  return (
+    <>
+      {searchAction ? <SymbolSearch action={searchAction} /> : null}
+      {state.status === "empty" ? (
+        <EmptyCard />
+      ) : state.status === "error" ? (
+        <ErrorCard message={state.message} />
+      ) : (
+        <ResearchOk view={state.view} />
+      )}
+    </>
+  );
+}
+
+/**
+ * Symbol-lookup box. A JS-free <form> bound to a server action that redirects
+ * into /research/[symbol] — so you can research any ticker, not only the ones
+ * already in a watchlist snapshot.
+ */
+function SymbolSearch({
+  action,
+}: {
+  action: (formData: FormData) => void | Promise<void>;
+}) {
+  return (
+    <section className="page-card">
+      <form action={action} className="add-source-form" role="search">
+        <label className="add-source-label" htmlFor="symbol">
+          Look up a symbol
+        </label>
+        <div className="add-source-row">
+          <input
+            id="symbol"
+            name="symbol"
+            type="text"
+            className="add-source-input"
+            placeholder="AAPL"
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            required
+          />
+          <button type="submit" className="add-source-submit">
+            Research
+          </button>
+        </div>
+      </form>
+    </section>
+  );
 }
 
 function EmptyCard() {

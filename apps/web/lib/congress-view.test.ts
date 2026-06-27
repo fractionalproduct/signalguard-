@@ -5,9 +5,11 @@ import {
   buildDisclosuresView,
   chamberLabel,
   displaySymbol,
+  filterDisclosuresByFiledDate,
   formatAmountRange,
   formatDateUtc,
   formatUsd,
+  parseDisclosureDateRange,
   transactionLabel,
   type DisclosureRecord,
 } from "./congress-view";
@@ -87,4 +89,63 @@ test("empty input yields an empty view", () => {
   assert.equal(view.isEmpty, true);
   assert.equal(view.total, 0);
   assert.deepEqual(view.groups, []);
+});
+
+test("parseDisclosureDateRange: blank inputs => no bounds, no error", () => {
+  const r = parseDisclosureDateRange({});
+  assert.equal(r.from, undefined);
+  assert.equal(r.to, undefined);
+  assert.equal(r.error, undefined);
+  assert.equal(r.fromInput, "");
+  assert.equal(r.toInput, "");
+});
+
+test("parseDisclosureDateRange: from => UTC start of day, to => inclusive end of day", () => {
+  const r = parseDisclosureDateRange({ from: "2026-05-01", to: "2026-05-31" });
+  assert.equal(r.error, undefined);
+  assert.equal(r.from?.toISOString(), "2026-05-01T00:00:00.000Z");
+  assert.equal(r.to?.toISOString(), "2026-05-31T23:59:59.999Z");
+  // Raw inputs are echoed back for the form.
+  assert.equal(r.fromInput, "2026-05-01");
+  assert.equal(r.toInput, "2026-05-31");
+});
+
+test("parseDisclosureDateRange: malformed date => error, no bounds applied", () => {
+  const r = parseDisclosureDateRange({ from: "05/01/2026" });
+  assert.match(r.error ?? "", /From/);
+  assert.equal(r.from, undefined);
+  assert.equal(r.to, undefined);
+});
+
+test("parseDisclosureDateRange: impossible calendar date => error", () => {
+  const r = parseDisclosureDateRange({ to: "2026-02-31" });
+  assert.match(r.error ?? "", /To/);
+  assert.equal(r.to, undefined);
+});
+
+test("parseDisclosureDateRange: from after to => error", () => {
+  const r = parseDisclosureDateRange({ from: "2026-06-01", to: "2026-05-01" });
+  assert.match(r.error ?? "", /after/);
+  assert.equal(r.from, undefined);
+  assert.equal(r.to, undefined);
+});
+
+test("filterDisclosuresByFiledDate: no bounds returns a copy of all rows", () => {
+  const rows = [rec({ id: "a" }), rec({ id: "b" })];
+  const out = filterDisclosuresByFiledDate(rows, { fromInput: "", toInput: "" });
+  assert.deepEqual(out.map((r) => r.id), ["a", "b"]);
+  assert.notEqual(out, rows); // copy, not the same array
+});
+
+test("filterDisclosuresByFiledDate: inclusive bounds keep edge dates, drop outside", () => {
+  const rows = [
+    rec({ id: "before", filedDate: new Date("2026-04-30T12:00:00Z") }),
+    rec({ id: "lowEdge", filedDate: new Date("2026-05-01T00:00:00Z") }),
+    rec({ id: "inside", filedDate: new Date("2026-05-15T09:00:00Z") }),
+    rec({ id: "highEdge", filedDate: new Date("2026-05-31T23:59:59Z") }),
+    rec({ id: "after", filedDate: new Date("2026-06-01T00:00:00Z") }),
+  ];
+  const range = parseDisclosureDateRange({ from: "2026-05-01", to: "2026-05-31" });
+  const out = filterDisclosuresByFiledDate(rows, range);
+  assert.deepEqual(out.map((r) => r.id), ["lowEdge", "inside", "highEdge"]);
 });

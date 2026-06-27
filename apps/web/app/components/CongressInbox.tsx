@@ -1,16 +1,51 @@
 import type { CongressState } from "../../lib/congress";
-import type { DisclosureGroupView, DisclosuresView } from "../../lib/congress-view";
+import type {
+  DisclosureDateRange,
+  DisclosureGroupView,
+  DisclosuresView,
+} from "../../lib/congress-view";
 
 /**
  * Presentational read-only congressional disclosures inbox. Renders one of the
  * explicit states from loadCongressState(): not-configured, error, or ok (which
- * covers the empty case). No interactivity — this view only displays the
- * disclosures the ingestion pipeline parsed from approved sources.
+ * covers the empty case). The only interactivity is a filed-date range filter,
+ * a JS-free GET form that round-trips through the query string.
  */
-export function CongressInbox({ state }: { state: CongressState }) {
+export function CongressInbox({
+  state,
+  range,
+}: {
+  state: CongressState;
+  range?: DisclosureDateRange;
+}) {
   if (state.status === "not-configured") return <NotConfiguredCard />;
   if (state.status === "error") return <CongressErrorCard message={state.message} />;
-  return <CongressOk view={state.view} />;
+  return <CongressOk view={state.view} range={range} />;
+}
+
+/**
+ * Filed-date range filter. A plain GET <form> so it works without client JS:
+ * submitting reloads /congress?from=…&to=…, which the server component re-reads.
+ * type="date" inputs emit YYYY-MM-DD, exactly what parseDisclosureDateRange wants.
+ */
+function DateRangeFilter({ range }: { range: DisclosureDateRange }) {
+  const hasFilter = Boolean(range.fromInput || range.toInput);
+  return (
+    <form method="get" className="filter-bar" role="search" aria-label="Filter disclosures by filed date">
+      <label className="filter-field">
+        <span className="muted">Filed from</span>
+        <input type="date" name="from" defaultValue={range.fromInput} aria-label="Filed on or after" />
+      </label>
+      <label className="filter-field">
+        <span className="muted">to</span>
+        <input type="date" name="to" defaultValue={range.toInput} aria-label="Filed on or before" />
+      </label>
+      <button type="submit">Filter</button>
+      {hasFilter ? (
+        <a href="/congress" className="muted">Clear</a>
+      ) : null}
+    </form>
+  );
 }
 
 function NotConfiguredCard() {
@@ -43,15 +78,30 @@ function CongressErrorCard({ message }: { message: string }) {
   );
 }
 
-function CongressOk({ view }: { view: DisclosuresView }) {
+function CongressOk({
+  view,
+  range,
+}: {
+  view: DisclosuresView;
+  range?: DisclosureDateRange;
+}) {
+  const activeRange = range ?? { fromInput: "", toInput: "" };
+  const filtered = Boolean(activeRange.fromInput || activeRange.toInput);
   return (
     <section className="page-card">
       <p className="eyebrow">Beginner view · read-only</p>
       <h1>Congress</h1>
+      <DateRangeFilter range={activeRange} />
+      {activeRange.error ? (
+        <div className="empty-state" role="alert">
+          {activeRange.error} Showing all recent disclosures instead.
+        </div>
+      ) : null}
       {view.isEmpty ? (
         <div className="empty-state" role="status">
-          No disclosures yet. When the ingestion job parses congressional filings
-          from your approved sources, they&apos;ll appear here.
+          {filtered
+            ? "No disclosures filed in that date range. Widen the range or clear the filter."
+            : "No disclosures yet. When the ingestion job parses congressional filings from your approved sources, they'll appear here."}
         </div>
       ) : (
         <>
