@@ -39,6 +39,16 @@ const MAX_AGE_DAYS = Number(process.env.POLITICAL_MAX_AGE_DAYS ?? 60);
 const MIN_AMOUNT_USD = Number(process.env.POLITICAL_MIN_AMOUNT_USD ?? 15_000);
 const MAX_PER_RUN = Number(process.env.POLITICAL_MAX_PER_RUN ?? 5);
 
+/**
+ * Return a JSON result AND log it, so the run's outcome is observable in Vercel
+ * runtime logs (the HTTP body isn't) — confirming the cron without needing the
+ * Sensitive CRON_SECRET to replay it.
+ */
+function result(payload: Record<string, unknown>): Response {
+  console.log("[political-trades]", JSON.stringify(payload));
+  return NextResponse.json(payload);
+}
+
 export async function GET(req: Request): Promise<Response> {
   if (
     !isAuthorizedCronRequest({
@@ -50,7 +60,7 @@ export async function GET(req: Request): Promise<Response> {
   }
 
   if (process.env.POLITICAL_TRADES_ENABLED !== "true") {
-    return NextResponse.json({ ok: true, reason: "disabled", created: 0 });
+    return result({ ok: true, reason: "disabled", created: 0 });
   }
 
   // Watched members of Congress (curated default, overridable). Trump is watched
@@ -65,19 +75,19 @@ export async function GET(req: Request): Promise<Response> {
     watched.length > 0 ? fetchCongressTrades() : Promise.resolve(null),
   ]);
   if (trump === null && congressAll === null) {
-    return NextResponse.json({ ok: true, reason: "source_unavailable", created: 0 });
+    // Both sources unavailable: no key, non-OK response, or wrong endpoint/auth.
+    return result({ ok: true, reason: "source_unavailable", created: 0 });
   }
 
   // Merge the President's disclosures with the watched members' (filtered from
   // the all-Congress feed). The shared filter/gate below treats them uniformly.
-  const trades = [
-    ...(trump ?? []),
-    ...(congressAll ? filterByPoliticians(congressAll, watched) : []),
-  ];
+  const trumpTrades = trump ?? [];
+  const congressMatched = congressAll ? filterByPoliticians(congressAll, watched) : [];
+  const trades = [...trumpTrades, ...congressMatched];
 
   const marketData = createAlpacaMarketDataFromEnv();
   if (!marketData) {
-    return NextResponse.json({ ok: true, reason: "market_data_not_configured", created: 0 });
+    return result({ ok: true, reason: "market_data_not_configured", created: 0 });
   }
 
   const nominations = selectTradesToNominate(trades, {
@@ -139,9 +149,11 @@ export async function GET(req: Request): Promise<Response> {
     }
   }
 
-  return NextResponse.json({
+  return result({
     ok: true,
     watched: watched.length,
+    trumpTrades: trumpTrades.length,
+    congressMatched: congressMatched.length,
     disclosed: trades.length,
     nominated: nominations.length,
     created,
