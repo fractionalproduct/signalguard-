@@ -96,6 +96,8 @@
     "lib/assistant.ts",
     "lib/assistant.test.ts",
     "lib/classification.ts",
-    "lib/classification.test.ts"
+    "lib/classification.test.ts",
+    "lib/political-trades.ts",
+    "lib/political-trades.test.ts"
   ]
 }
